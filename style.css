@@ -1,0 +1,1398 @@
+/* ==========================================
+   RUGBIX — CSS PRINCIPAL
+   ========================================== */
+
+/* ===== GOOGLE FONTS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@450;700;900&display=swap');
+
+:root {
+  --bg: #0b0d17;
+  --card-bg: #e8eaf0;
+  --card-text: #1a1a2e;
+  --card-text-muted: #4a4a6a;
+  --sidebar-bg: rgba(10, 12, 22, 0.95);
+  --header-bg: rgba(15, 18, 32, 0.92);
+  --border: rgba(255,255,255,0.07);
+  --text: #ffffff;
+  --text-muted: #aaaaaa;
+  --accent: #cc0000;
+  --gold: #ffd100;
+
+  --commune: #9e9e9e;
+  --rare: #05DF72;
+  --epique: #9c27b0;
+  --legendaire: #ffd700;
+  --international: #1a1a2e;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ===== LAYOUT GLOBAL ===== */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  cursor: url('data:image/png;base64,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') 24 24, auto;
+}
+
+.game-client {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ===== HEADER ===== */
+.game-header {
+  height: 72px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  backdrop-filter: blur(6px);
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.logo {
+  height: 56px;
+  width: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+/* ===== BODY = SIDEBAR + CONTENT ===== */
+.game-body {
+  display: flex;
+  flex: 1;
+  height: calc(100% - 72px);
+  overflow: hidden;
+}
+
+/* ===== SIDEBAR ===== */
+.game-sidebar {
+  width: 220px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.nav-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-muted);
+  padding: 13px 18px;
+  text-align: left;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-btn:hover,
+.nav-btn.active {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  border-left: 4px solid var(--gold);
+  padding-left: 14px;
+}
+
+/* ===== CONTENU CENTRAL (scrollable) ===== */
+.game-content {
+  flex: 1;
+  padding: 30px 28px;
+  overflow-y: auto;
+  background: radial-gradient(circle at center, rgba(20,24,43,0.4) 0%, rgba(11,13,23,0.95) 100%);
+}
+
+/* Scrollbar dorée */
+.game-content::-webkit-scrollbar { width: 7px; }
+.game-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+.game-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.game-content::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* ===== TITRES DE SECTION ===== */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  margin-bottom: 1.2rem;
+  text-transform: uppercase;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.section-stats {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ===== TABS ===== */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ===== COINS ===== */
+.coins {
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: 'Montserrat', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fff;
+}
+
+.rubiz-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), #b8860b);
+  color: #1a1a1a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: bold;
+  font-style: italic;
+  font-size: 0.95em;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.coins button {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: white;
+  cursor: pointer;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+}
+.coins button:hover { background: rgba(255,255,255,0.18); }
+
+.packs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.2rem;
+}
+
+.pack-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--card-text);
+}
+
+.pack-card h3 { margin: 0.2rem 0; color: var(--card-text); }
+.pack-card p { color: var(--card-text-muted); font-size: 0.9rem; margin: 0; }
+
+.pack-icon { font-size: 3rem; }
+
+.pack-cost {
+  font-weight: bold;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.open-btn {
+  margin-top: auto;
+  padding: 0.7rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.open-btn:hover:not(:disabled) { transform: scale(1.03); }
+.open-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* ===== CARTES ===== */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border: 3px solid var(--commune);
+  display: flex;
+  flex-direction: column;
+}
+
+.card.commune    { border-color: #555555; }
+.card.rare       { border-color: var(--rare); }
+.card.epique     { border-color: var(--epique); box-shadow: 0 0 12px rgba(156,39,176,0.4); }
+
+/* Légende : design sombre bleu/or */
+.card.legendaire {
+  border: 3px solid #d4af37;
+  box-shadow: 0 0 18px rgba(212,175,55,0.5), inset 0 0 0 1px #8a6f00;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2c2c54 50%, #3a3a5c 100%);
+}
+.card.legendaire .card-name,
+.card.legendaire .card-team,
+.card.legendaire .card-position,
+.card.legendaire .card-count,
+.card.legendaire .card-nationality {
+  color: #f0f0f0;
+}
+.card.legendaire .card-info {
+  background: transparent;
+}
+
+/* International : design bordure dorée (ancien legendaire) */
+.card.international {
+  border-color: var(--legendaire);
+  box-shadow: 0 0 16px rgba(255,215,0,0.6);
+}
+
+
+.card-avatar {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+/* ===== FONDS D'ÉQUIPE PERSONNALISÉS ===== */
+
+/* Stade Toulousain : rouge avec rayures noires horizontales */
+.avatar-toulouse {
+  background: repeating-linear-gradient(
+    0deg,
+    #cc0000 0px, #cc0000 18px,
+    #1a1a1a 18px, #1a1a1a 26px
+  );
+}
+
+/* Montpellier : bleu clair et bleu foncé */
+.avatar-montpellier {
+  background: linear-gradient(135deg, #4a90d9 0%, #4a90d9 50%, #002958 50%, #002958 100%);
+}
+
+/* Racing 92 : rayures horizontales bleu clair et blanc */
+.avatar-racing92 {
+  background: repeating-linear-gradient(
+    0deg,
+    #add7f3 0px, #add7f3 16px,
+    #ffffff 16px, #ffffff 32px
+  );
+}
+.avatar-racing92 .card-name,
+.avatar-racing92 { color: #1a1a1a; }
+
+/* Stade Rochelais : jaune et noir */
+.avatar-lapelle {
+  background: repeating-linear-gradient(
+    135deg,
+    #FFD000 0px, #FFD000 20px,
+    #1a1a1a 20px, #1a1a1a 40px
+  );
+}
+.avatar-lapelle { color: #ffffff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+
+/* ASM Clermont : jaune et bleu foncé en diagonale */
+.avatar-clermont {
+  background: linear-gradient(135deg, #FEEB2F 0%, #FEEB2F 50%, #002b6b 50%, #002b6b 100%);
+}
+.avatar-clermont { color: #1a1a1a; text-shadow: none; }
+
+/* UBB : rayures violet foncé et rouge bordeaux */
+.avatar-ubb {
+  background: repeating-linear-gradient(
+    90deg,
+    #4b0e3a 0px, #4b0e3a 18px,
+    #73354C 18px, #73354C 36px
+  );
+}
+
+/* Aviron Bayonnais : dégradé bleu clair vers blanc, du haut vers le bas */
+.avatar-bayonne {
+  background: linear-gradient(180deg, #7AB7E7 0%, #ffffff 100%);
+}
+.avatar-bayonne { color: #1a1a1a; text-shadow: none; }
+
+/* USA Perpignan : rayures diagonales rouge et jaune */
+.avatar-perpignan {
+  background: repeating-linear-gradient(
+    45deg,
+    #db1d3a 0px, #db1d3a 18px,
+    #ffd200 18px, #ffd200 36px
+  );
+}
+
+/* US Montauban : vert avec liseré noir */
+.avatar-montauban {
+  background: #1A4934;
+  border: 3px solid #1a1a1a;
+}
+
+/* Cartes Légendes : fond or/argent/médaillon (ancien design international) */
+.card.legendaire .card-avatar {
+  background: radial-gradient(circle at 50% 35%, #fff7d6 0%, #d4af37 35%, #9a9a9a 65%, #c0c0c0 85%, #707070 100%);
+  color: #1a1a2e;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 1px;
+  position: relative;
+  border-bottom: 3px solid #d4af37;
+}
+.card.legendaire .avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid #d4af37;
+  box-shadow: 0 0 6px rgba(212,175,55,0.7);
+}
+
+/* Cartes Internationales : avatar avec couleur club (ancien design legendaire simple) */
+.card.international .card-avatar {
+  /* hérite du style club via avatarClass/avatarStyle — pas de surcharge globale */
+}
+
+.card-info {
+  padding: 0.5rem 0.4rem 0.4rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  background: var(--card-bg);
+}
+
+.card-name {
+  font-weight: bold;
+  font-size: 0.82rem;
+  color: var(--card-text);
+  margin: 0;
+  height: 2.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  width: 100%;
+}
+
+.card-team {
+  font-size: 0.72rem;
+  color: var(--card-text-muted);
+  height: 2.8em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  width: 100%;
+  margin: 0;
+}
+
+.card-position {
+  font-size: 0.68rem;
+  color: var(--card-text-muted);
+  margin: 0;
+  height: 2.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  width: 100%;
+}
+
+.card-rarity {
+  display: inline-block;
+  margin: 0.3rem auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: bold;
+  color: white;
+  height: 1.6em;
+  line-height: 1.3;
+}
+
+.card-rarity.commune    { background: var(--commune); }
+.card-rarity.rare       { background: var(--rare); }
+.card-rarity.epique     { background: var(--epique); }
+.card-rarity.legendaire { background: var(--international); color: #fff; }
+.card-rarity.international { background: var(--legendaire); color: #333; }
+
+
+.card-count {
+  font-size: 0.68rem;
+  color: var(--card-text-muted);
+  margin: 0;
+  height: 1.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-nationality {
+  font-size: 0.68rem;
+  color: var(--card-text-muted);
+  margin: 0;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3em;
+  width: 100%;
+}
+
+.nat-flag-img {
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: block;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.nat-flag-fallback {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.nat-code {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #777;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.card.legendaire .card-nationality,
+.card.legendaire .nat-code {
+  color: #d0d0d0;
+}
+
+.sell-btn {
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  border-radius: 6px;
+  background: #2e7d32;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  cursor: pointer;
+  width: 100%;
+}
+.sell-btn:hover { background: #1b5e20; }
+
+.empty-card {
+  border: 2px dashed #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: #bbb;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+/* ===== COLLECTION ===== */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.sort-controls {
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.sort-controls label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sort-controls select.hidden {
+  display: none;
+}
+
+/* Même style pour TOUS les selects de tri (Mon Club + Album) */
+#sort-select,
+#position-filter-select,
+#album-sort-select,
+#album-position-filter-select {
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  font-size: 0.85rem;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+}
+
+#sort-select:hover,
+#position-filter-select:hover,
+#album-sort-select:hover,
+#album-position-filter-select:hover {
+  border-color: var(--gold);
+  background-color: rgba(255,255,255,0.1);
+}
+
+#sort-select:focus,
+#position-filter-select:focus,
+#album-sort-select:focus,
+#album-position-filter-select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(255,209,0,0.25);
+}
+
+/* Options dans le select (fond sombre) */
+#sort-select option,
+#position-filter-select option,
+#album-sort-select option,
+#album-position-filter-select option {
+  background: #1a1c2e;
+  color: #fff;
+}
+
+.section-stats {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ===== MODALE ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: #f2f4f8;
+  color: #1a1a2e;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 90vw;
+  width: fit-content;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: center;
+}
+
+#opening-title {
+  font-family: 'Bebas Neue', 'Montserrat', sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
+  color: #1a1a2e;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+/* Modale détail carte : taille fixe */
+.card-detail-content {
+  width: 300px !important;
+}
+
+/* Modale confirmation vente */
+.sell-confirm-content {
+  width: 320px !important;
+}
+
+#close-modal-btn {
+  margin-top: 1.2rem;
+  padding: 0.7rem 2rem;
+  border: none;
+  border-radius: 24px;
+  background: var(--accent);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+#close-modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+/* Grille d'ouverture : cartes en ligne horizontale */
+.reveal-grid {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 0.8rem;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+}
+
+.reveal-grid .card {
+  width: 150px;
+  flex-shrink: 0;
+  animation: revealCard 0.5s ease forwards;
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+@keyframes revealCard {
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ===== CLIQUABLE / ZOOM CARTE ===== */
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.clickable-card:hover {
+  transform: translateY(-4px) scale(1.03);
+}
+
+.card-detail-content {
+  max-width: 320px;
+  position: relative;
+  padding: 2rem 1.5rem 1.5rem;
+}
+
+.zoomed-card {
+  width: 200px;
+  margin: 0 auto 1.5rem;
+}
+
+.zoomed-card .card-avatar {
+  height: 140px;
+  font-size: 3.2rem;
+}
+
+/* ===== CONTROLES DE VENTE (groupe unique, harmonieux) ===== */
+.sell-controls {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  margin-top: 0.5rem;
+  min-height: 50px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+
+.sell-controls.hidden {
+  visibility: hidden;
+}
+
+.qty-selector {
+  display: flex;
+  align-items: stretch;
+  background: #f0f0f0;
+}
+
+.qty-btn {
+  width: 44px;
+  border: none;
+  background: #e0e0e0;
+  font-size: 1.3rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+}
+.qty-btn:hover:not(:disabled) { background: #d0d0d0; }
+.qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#qty-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  min-width: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  color: #333;
+}
+
+.confirm-sell-btn {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: none;
+  background: #2e7d32;
+  color: white;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.confirm-sell-btn:hover { background: #1b5e20; }
+.confirm-sell-btn:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+/* ===== BOUTON FERMER STYLISÉ (modale détail) ===== */
+.close-x-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #555;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.close-x-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: rotate(90deg);
+}
+
+/* ===== MODALE CONFIRMATION VENTE ===== */
+.sell-confirm-content {
+  max-width: 320px;
+  text-align: center;
+}
+.sell-confirm-content p {
+  font-weight: bold;
+  margin: 0 0 1.2rem 0;
+}
+.sell-confirm-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+.sell-confirm-yes,
+.sell-confirm-no {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.sell-confirm-yes {
+  background: #2e7d32;
+  color: white;
+}
+.sell-confirm-yes:hover { background: #1b5e20; }
+.sell-confirm-no {
+  background: #aaa;
+  color: white;
+}
+.sell-confirm-no:hover { background: #888; }
+
+/* ===== PACK XV DÉMARRAGE ===== */
+.pack-card-xv {
+  border: 2px solid #2e7d32;
+  background: linear-gradient(135deg, #f0fff0 0%, #e8f5e9 100%);
+  color: var(--card-text);
+  position: relative;
+}
+.pack-card-xv h3, .pack-card-xv p { color: var(--card-text); }
+
+.pack-card-xv::before {
+  content: "1 SEULE FOIS";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  background: #2e7d32;
+  color: white;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.pack-cost-free {
+  font-weight: bold;
+  color: #2e7d32;
+  font-size: 1.2rem;
+  letter-spacing: 0.05em;
+}
+
+.open-btn-xv {
+  background: #2e7d32 !important;
+}
+.open-btn-xv:hover:not(:disabled) {
+  background: #1b5e20 !important;
+}
+
+/* ===== BADGE CADENAS CARTE NON REVENDABLE ===== */
+.card-avatar {
+  position: relative;
+}
+
+.card-lock-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 0.8rem;
+  background: rgba(0,0,0,0.55);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ===== ONGLET ALBUM ===== */
+.album-card-wrapper {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.album-card-wrapper:hover {
+  transform: translateY(-4px) scale(1.03);
+}
+
+/* Carte non possédée : grisée et transparente */
+.card-not-owned {
+  filter: grayscale(100%) opacity(0.45);
+  pointer-events: none;
+}
+.album-card-missing {
+  pointer-events: all;
+}
+.album-card-missing .card-not-owned {
+  pointer-events: none;
+}
+
+/* Badge "Effectif" en diagonale haut-droit */
+.album-owned-badge {
+  position: absolute;
+  top: 10px;
+  right: -18px;
+  transform: rotate(35deg);
+  background: #2e7d32;
+  color: white;
+  font-size: 0.55rem;
+  font-weight: bold;
+  padding: 0.15rem 1.2rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+/* Variante pour la modale : bandeau horizontal dans l'avatar, sans overflow */
+.album-owned-badge--inside {
+  position: absolute;
+  top: auto;
+  right: auto;
+  bottom: 0;
+  left: 0;
+  transform: none;
+  width: 100%;
+  text-align: center;
+  padding: 0.2rem 0;
+  font-size: 0.6rem;
+  border-radius: 0;
+  background: rgba(46,125,50,0.88);
+  box-shadow: none;
+  letter-spacing: 0.08em;
+}
+
+/* Le wrapper relatif pour le badge diagonal */
+.album-card {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Clip pour que le badge ne dépasse pas trop */
+.album-card-wrapper {
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+/* S'assurer que card-avatar est position:relative pour --inside */
+.zoomed-card .card-avatar {
+  position: relative;
+}
+
+/* ===== ONGLET MON ÉQUIPE ===== */
+.equipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.equipe-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.compo-type-btn {
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffd700, #b8860b);
+  color: #1a1a1a;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: transform 0.1s ease;
+}
+.compo-type-btn:hover { transform: scale(1.04); }
+
+.reset-equipe-btn {
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  background: #eee;
+  color: #555;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.reset-equipe-btn:hover { background: #ddd; }
+
+/* ===== TERRAIN ===== */
+#pitch-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgNjQwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBzbGljZSI+CjxkZWZzPgogIDxwYXR0ZXJuIGlkPSJnYXpvbiIgeD0iMCIgeT0iMCIgd2lkdGg9IjgwMCIgaGVpZ2h0PSI1NiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICA8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjI4IiBmaWxsPSIjMmQ3YTJkIi8+CiAgICA8cmVjdCB5PSIyOCIgd2lkdGg9IjgwMCIgaGVpZ2h0PSIyOCIgZmlsbD0iIzI3NmMyNyIvPgogIDwvcGF0dGVybj4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRsIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMCI+CiAgICA8c3RvcCBvZmZzZXQ9IjAlIiAgIHN0b3AtY29sb3I9IiMxYzFjMWMiLz4KICAgIDxzdG9wIG9mZnNldD0iNjAlIiAgc3RvcC1jb2xvcj0iIzQ0NCIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNTU1Ii8+CiAgPC9saW5lYXJHcmFkaWVudD4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRyIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMCI+CiAgICA8c3RvcCBvZmZzZXQ9IjAlIiAgIHN0b3AtY29sb3I9IiM1NTUiLz4KICAgIDxzdG9wIG9mZnNldD0iNDAlIiAgc3RvcC1jb2xvcj0iIzQ0NCIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMWMxYzFjIi8+CiAgPC9saW5lYXJHcmFkaWVudD4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRvaXRfZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgPHN0b3Agb2Zmc2V0PSIwJSIgIHN0b3AtY29sb3I9IiMxMTEiLz4KICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzMzMyIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJ0b2l0X2QiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj4KICAgIDxzdG9wIG9mZnNldD0iMCUiICBzdG9wLWNvbG9yPSIjMTExIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMzMzMiLz4KICA8L2xpbmVhckdyYWRpZW50PgogIDxyYWRpYWxHcmFkaWVudCBpZD0ic3BvdCIgY3g9IjUwJSIgY3k9IjAlIiByPSI4MCUiPgogICAgPHN0b3Agb2Zmc2V0PSIwJSIgIHN0b3AtY29sb3I9InJnYmEoMjU1LDI0MCwyMDAsMC4xMikiLz4KICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0icmdiYSgwLDAsMCwwKSIvPgogIDwvcmFkaWFsR3JhZGllbnQ+CiAgPHJhZGlhbEdyYWRpZW50IGlkPSJmaWVsZF9saWdodCIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgIDxzdG9wIG9mZnNldD0iMCUiICAgc3RvcC1jb2xvcj0icmdiYSgyNTUsMjU1LDI1NSwwLjA0KSIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSJyZ2JhKDAsMCwwLDApIi8+CiAgPC9yYWRpYWxHcmFkaWVudD4KPC9kZWZzPgoKPCEtLSBQZWxvdXNlIC0tPgo8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjY0MCIgZmlsbD0idXJsKCNnYXpvbikiLz4KCjwhLS0gVHJpYnVuZSBnYXVjaGUgLS0+Cjxwb2x5Z29uIHBvaW50cz0iMCwwIDg4LDU1IDg4LDU5MCAwLDY0MCIgZmlsbD0idXJsKCN0bCkiLz4KPGcgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTIpIiBzdHJva2Utd2lkdGg9IjEuMiIgZmlsbD0ibm9uZSI+CiAgPGxpbmUgeDE9IjAiIHkxPSI1OCIgIHgyPSI4OCIgeTI9IjgyIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSIxMTAiIHgyPSI4OCIgeTI9IjEyOCIvPgogIDxsaW5lIHgxPSIwIiB5MT0iMTYyIiB4Mj0iODgiIHkyPSIxNzQiLz4KICA8bGluZSB4MT0iMCIgeTE9IjIxNCIgeDI9Ijg4IiB5Mj0iMjIwIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSIyNjYiIHgyPSI4OCIgeTI9IjI2NiIvPgogIDxsaW5lIHgxPSIwIiB5MT0iMzIwIiB4Mj0iODgiIHkyPSIzMjAiLz4KICA8bGluZSB4MT0iMCIgeTE9IjM3NCIgeDI9Ijg4IiB5Mj0iMzc0Ii8+CiAgPGxpbmUgeDE9IjAiIHkxPSI0MjYiIHgyPSI4OCIgeTI9IjQyMCIvPgogIDxsaW5lIHgxPSIwIiB5MT0iNDc4IiB4Mj0iODgiIHkyPSI0NjYiLz4KICA8bGluZSB4MT0iMCIgeTE9IjUzMCIgeDI9Ijg4IiB5Mj0iNTEyIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSI1ODIiIHgyPSI4OCIgeTI9IjU1OCIvPgo8L2c+CjxnIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA3KSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIj4KICA8bGluZSB4MT0iMjAiIHkxPSIwIiB4Mj0iNzAiIHkyPSI2NDAiLz4KICA8bGluZSB4MT0iNTAiIHkxPSIwIiB4Mj0iODAiIHkyPSI2NDAiLz4KPC9nPgo8ZWxsaXBzZSBjeD0iNDQiIGN5PSIwIiByeD0iNTAiIHJ5PSI4MCIgZmlsbD0idXJsKCNzcG90KSIvPgo8cG9seWdvbiBwb2ludHM9IjAsMCA4OCw1NSA4OCwzMiAwLDAiIGZpbGw9InVybCgjdG9pdF9nKSIvPgo8bGluZSB4MT0iMCIgeTE9IjAiIHgyPSI4OCIgeTI9IjU1IiBzdHJva2U9InJnYmEoMTgwLDE4MCwxODAsMC40KSIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIwIiB5MT0iMiIgeDI9Ijg4IiB5Mj0iNTciIHN0cm9rZT0icmdiYSgyMDAsNTAsNTAsMC4zNSkiIHN0cm9rZS13aWR0aD0iNCIvPgoKPCEtLSBUcmlidW5lIGRyb2l0ZSAtLT4KPHBvbHlnb24gcG9pbnRzPSI4MDAsMCA3MTIsNTUgNzEyLDU5MCA4MDAsNjQwIiBmaWxsPSJ1cmwoI3RyKSIvPgo8ZyBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4xMikiIHN0cm9rZS13aWR0aD0iMS4yIiBmaWxsPSJub25lIj4KICA8bGluZSB4MT0iODAwIiB5MT0iNTgiICB4Mj0iNzEyIiB5Mj0iODIiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iMTEwIiB4Mj0iNzEyIiB5Mj0iMTI4Ii8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjE2MiIgeDI9IjcxMiIgeTI9IjE3NCIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSIyMTQiIHgyPSI3MTIiIHkyPSIyMjAiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iMjY2IiB4Mj0iNzEyIiB5Mj0iMjY2Ii8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjMyMCIgeDI9IjcxMiIgeTI9IjMyMCIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSIzNzQiIHgyPSI3MTIiIHkyPSIzNzQiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iNDI2IiB4Mj0iNzEyIiB5Mj0iNDIwIi8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjQ3OCIgeDI9IjcxMiIgeTI9IjQ2NiIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSI1MzAiIHgyPSI3MTIiIHkyPSI1MTIiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iNTgyIiB4Mj0iNzEyIiB5Mj0iNTU4Ii8+CjwvZz4KPGcgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDcpIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiPgogIDxsaW5lIHgxPSI3ODAiIHkxPSIwIiB4Mj0iNzMwIiB5Mj0iNjQwIi8+CiAgPGxpbmUgeDE9Ijc1MCIgeTE9IjAiIHgyPSI3MjAiIHkyPSI2NDAiLz4KPC9nPgo8ZWxsaXBzZSBjeD0iNzU2IiBjeT0iMCIgcng9IjUwIiByeT0iODAiIGZpbGw9InVybCgjc3BvdCkiLz4KPHBvbHlnb24gcG9pbnRzPSI4MDAsMCA3MTIsNTUgNzEyLDMyIDgwMCwwIiBmaWxsPSJ1cmwoI3RvaXRfZCkiLz4KPGxpbmUgeDE9IjgwMCIgeTE9IjAiIHgyPSI3MTIiIHkyPSI1NSIgc3Ryb2tlPSJyZ2JhKDE4MCwxODAsMTgwLDAuNCkiIHN0cm9rZS13aWR0aD0iMiIvPgo8bGluZSB4MT0iODAwIiB5MT0iMiIgeDI9IjcxMiIgeTI9IjU3IiBzdHJva2U9InJnYmEoMjAwLDUwLDUwLDAuMzUpIiBzdHJva2Utd2lkdGg9IjQiLz4KCjwhLS0gPT09PT0gTElHTkVTIERVIFRFUlJBSU4gPT09PT0gLS0+CjwhLS0gQm9yZHVyZSBleHTDqXJpZXVyZSAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjUzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNzUpIiBzdHJva2Utd2lkdGg9IjIuNSIvPgoKPCEtLSBab25lIGQgZW4tYnV0IGhhdXQgKHRvdXQgZW4gaGF1dCwgYXUtZGVzc3VzIGRlcyBqb3VldXJzKSAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjYyIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDYpIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC42KSIgc3Ryb2tlLXdpZHRoPSIyIi8+Cgo8IS0tIFpvbmUgZCBlbi1idXQgYmFzICh0b3V0IGVuIGJhcykgLS0+CjxyZWN0IHg9Ijg4IiB5PSI1MjMiIHdpZHRoPSI2MjQiIGhlaWdodD0iNjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNikiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjYpIiBzdHJva2Utd2lkdGg9IjIiLz4KCjwhLS0gTGlnbmUgMjJtIEhBVVQg4oCUIGVudHJlIEFycmnDqHJlIGV0IHJhbmfDqWUgQWlsaWVycy9DZW50cmVzIChkYW5zIGwgZXNwYWNlIGxpYnJlKSAtLT4KPGxpbmUgeDE9Ijg4IiB5MT0iMTU1IiB4Mj0iNzEyIiB5Mj0iMTU1IiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC41NSkiIHN0cm9rZS13aWR0aD0iMiIvPgoKPCEtLSBMaWduZSBNw4lESUFORSDigJQgZW50cmUgcmFuZ8OpZSBEZW1pcyBldCByYW5nw6llIDNlIGxpZ25lIChlc3BhY2UgbGlicmUpIC0tPgo8bGluZSB4MT0iODgiIHkxPSIyOTIiIHgyPSI3MTIiIHkyPSIyOTIiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjc1KSIgc3Ryb2tlLXdpZHRoPSIzIi8+Cgo8IS0tIExpZ25lIDIybSBCQVMg4oCUIGVudHJlIHJhbmfDqWUgM2UgbGlnbmUgZXQgcmFuZ8OpZSAyZSBsaWduZSAoZXNwYWNlIGxpYnJlKSAtLT4KPGxpbmUgeDE9Ijg4IiB5MT0iNDMwIiB4Mj0iNzEyIiB5Mj0iNDMwIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC41NSkiIHN0cm9rZS13aWR0aD0iMiIvPgoKPCEtLSBQb2ludHMgZGUgcMOpbmFsaXTDqSAtLT4KPGNpcmNsZSBjeD0iNDAwIiBjeT0iMTQyIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNTUpIi8+CjxjaXJjbGUgY3g9IjQwMCIgY3k9IjQ0MyIgcj0iNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjU1KSIvPgoKPCEtLSBSZXDDqHJlIGNlbnRyZSAoY3JvaXggZGlzY3LDqHRlKSAtLT4KPGxpbmUgeDE9IjM5NCIgeTE9IjI4OCIgeDI9IjQwNiIgeTI9IjI4OCIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNjUpIiBzdHJva2Utd2lkdGg9IjIiLz4KPGxpbmUgeDE9IjQwMCIgeTE9IjI4MiIgeDI9IjQwMCIgeTI9IjI5OCIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNjUpIiBzdHJva2Utd2lkdGg9IjIiLz4KCjwhLS0gTHVtacOocmUgY2VudHJhbGUgZHUgdGVycmFpbiAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjUzMCIgZmlsbD0idXJsKCNmaWVsZF9saWdodCkiLz4KPC9zdmc+') center center / cover no-repeat;
+  border-radius: 12px;
+  padding: 1.2rem 1rem;
+  border: 4px solid rgba(255,255,255,0.18);
+  box-shadow: inset 0 0 50px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
+  min-width: 420px;
+  position: relative;
+}
+
+.pitch-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: nowrap;
+}
+
+/* ===== SLOT (poste vide) ===== */
+.pitch-slot {
+  width: 110px;
+  min-height: 90px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.pitch-slot:hover { transform: scale(1.05); }
+
+.pitch-slot-empty {
+  background: rgba(255,255,255,0.12);
+  border: 2px dashed rgba(255,255,255,0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.slot-num {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: rgba(255,255,255,0.9);
+}
+
+.slot-label {
+  font-size: 0.6rem;
+  text-align: center;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.2;
+}
+
+.slot-add {
+  font-size: 1.3rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 0.1rem;
+}
+
+/* ===== MINI-CARTE JOUEUR ===== */
+.pitch-slot-filled {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.mini-card {
+  width: 110px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #9e9e9e;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  background: white;
+  font-size: 0;
+}
+
+.mini-card.commune    { border-color: #555; }
+.mini-card.rare       { border-color: var(--rare); }
+.mini-card.epique     { border-color: var(--epique); box-shadow: 0 0 8px rgba(156,39,176,0.5); }
+.mini-card.international { border-color: var(--legendaire); box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+.mini-card.legendaire {
+  border-color: #d4af37;
+  box-shadow: 0 0 10px rgba(212,175,55,0.6);
+}
+
+.mini-card-header {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  position: relative;
+  color: white;
+}
+
+.mini-card.legendaire .mini-card-header {
+  background: radial-gradient(circle at 50% 50%, #fff7d6 0%, #d4af37 50%, #9a9a9a 100%);
+}
+
+.mini-num {
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.mini-card.legendaire .mini-num { color: #1a1a1a; }
+
+.mini-card-body {
+  padding: 0.3rem 0.35rem;
+  background: white;
+}
+
+.mini-card.legendaire .mini-card-body,
+.mini-card.international .mini-card-body {
+  background: white;
+}
+
+.mini-name {
+  font-size: 0.62rem;
+  font-weight: bold;
+  color: #1a1a1a;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-team {
+  font-size: 0.55rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-pos {
+  font-size: 0.52rem;
+  color: #888;
+  margin-top: 0.1rem;
+}
+
+/* ===== MODALE SÉLECTION JOUEUR ===== */
+.player-select-content {
+  max-width: 460px;
+  position: relative;
+  padding: 2rem 1.5rem 1.5rem;
+  text-align: left;
+}
+
+.player-select-content h3 {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.player-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+.player-select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: #f8f8f8;
+  border: 1px solid #eee;
+  color: #1a1a2e;
+  transition: background 0.1s;
+}
+.player-select-row:hover { background: #f0f0f0; color: #1a1a2e; }
+
+.player-in-team {
+  background: #e8f5e9;
+  border-color: #a5d6a7;
+  color: #1a1a2e;
+}
+
+.psr-rarity {
+  font-size: 0.62rem;
+  font-weight: bold;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  min-width: 62px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.psr-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.psr-name {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.psr-team {
+  font-size: 0.72rem;
+  color: #777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.psr-add-btn {
+  padding: 0.35rem 0.7rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.psr-add-btn:hover:not(:disabled) { background: #aa0000; }
+.psr-add-btn:disabled { background: #aaa; cursor: default; }
+
+.remove-player-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background: #ffebee;
+  color: #c62828;
+  font-weight: bold;
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 0.4rem;
+}
+.remove-player-btn:hover { background: #ffcdd2; }
+
+.no-players {
+  color: #aaa;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* ===== FILTRE CLUB — SÉLECTION JOUEUR ===== */
+.psr-club-filter {
+  margin-bottom: 0.5rem;
+}
+
+#psr-club-select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.85rem;
+  background: #f8f8f8;
+  color: #1a1a2e;
+  cursor: pointer;
+}
+
+#psr-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ===== PACK COUP D'ENVOI (quotidien) ===== */
+.pack-card-daily {
+  border: 2px solid #1565c0;
+  background: linear-gradient(135deg, #e3f2fd 0%, #e8eaf6 100%);
+  color: var(--card-text);
+  position: relative;
+}
+.pack-card-daily h3, .pack-card-daily p { color: var(--card-text); }
+
+.pack-card-daily::before {
+  content: "1 FOIS / JOUR";
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  background: #1565c0;
+  color: white;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.open-btn-daily {
+  background: #1565c0 !important;
+}
+.open-btn-daily:hover:not(:disabled) {
+  background: #0d47a1 !important;
+}
+
+/* Compte à rebours */
+.daily-countdown {
+  font-size: 0.78rem;
+  color: #1565c0;
+  font-weight: bold;
+  text-align: center;
+  padding: 0.3rem 0;
+  letter-spacing: 0.02em;
+}
+
+/* ===== BONUS RUGBIZ dans la modale d'ouverture ===== */
+.daily-bonus-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fff8e1, #fffde7);
+  border: 2px solid #ffd700;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 0 14px rgba(255,215,0,0.4);
+  animation: revealCard 0.4s ease forwards;
+  opacity: 0;
+  transform: scale(0.7);
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.daily-bonus-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.daily-bonus-amount {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #b8860b;
+  line-height: 1.1;
+}
+
+.daily-bonus-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #888;
+  margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
