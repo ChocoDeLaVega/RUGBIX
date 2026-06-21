@@ -1,9 +1,7 @@
 // =========================================================
-// LOGIQUE DU JEU - TOP 14 PACK OPENING
+// LOGIQUE DU JEU - RUGBIX
 // =========================================================
 
-const STORAGE_KEY_COLLECTION = "rugby_collection_v1";
-const STORAGE_KEY_COINS = "rugby_coins_v1";
 const STORAGE_KEY_XV_USED = "rugby_xv_used_v1";
 const STORAGE_KEY_DAILY_LAST = "rugby_daily_last_v1";
 
@@ -26,12 +24,190 @@ function markDailyUsed() {
 
 let collection = {};
 let coins = 0;
+let currentUser = null;
+let saveTimeout = null;
 
 // ---------------------------------------------------------
-// INITIALISATION (async — charge le Sheet en premier)
+// FIREBASE — AUTH + SAUVEGARDE
+// ---------------------------------------------------------
+
+// Démarrage : attendre l'état d'authentification Firebase
+firebase.auth().onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    const username = user.displayName || user.email.split("@")[0];
+    document.getElementById("header-username").textContent = "👤 " + username;
+    document.getElementById("auth-screen").classList.add("hidden");
+    document.getElementById("game-client").classList.remove("hidden");
+    await loadProgressFromFirebase();
+    init();
+  } else {
+    currentUser = null;
+    document.getElementById("auth-screen").classList.remove("hidden");
+    document.getElementById("game-client").classList.add("hidden");
+  }
+});
+
+// Charger la progression depuis Firestore
+async function loadProgressFromFirebase() {
+  try {
+    const doc = await db.collection("users").doc(currentUser.uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      collection = data.collection || {};
+      coins = data.coins !== undefined ? data.coins : 200;
+      if (data.xvUsed) localStorage.setItem(STORAGE_KEY_XV_USED, "true");
+      if (data.dailyLast) localStorage.setItem(STORAGE_KEY_DAILY_LAST, data.dailyLast);
+    } else {
+      collection = {};
+      coins = 200;
+      await saveToFirebase(); // Créer le document du nouveau joueur
+    }
+  } catch(e) {
+    console.error("Erreur chargement:", e);
+    collection = {};
+    coins = 200;
+  }
+}
+
+// Sauvegarder la progression (debounce 1.5s)
+function saveData() {
+  if (!currentUser) return;
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      await db.collection("users").doc(currentUser.uid).set({
+        collection,
+        coins,
+        xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
+        dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
+        lastSaved: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(e) {
+      console.error("Erreur sauvegarde:", e);
+    }
+  }, 1500);
+}
+
+async function saveToFirebase() {
+  if (!currentUser) return;
+  try {
+    await db.collection("users").doc(currentUser.uid).set({
+      collection,
+      coins,
+      xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
+      dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
+      lastSaved: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) {
+    console.error("Erreur sauvegarde:", e);
+  }
+}
+
+// ---------------------------------------------------------
+// AUTHENTIFICATION
+// ---------------------------------------------------------
+function setupAuth() {
+  document.getElementById("tab-login-btn").addEventListener("click", () => {
+    document.getElementById("tab-login-btn").classList.add("active");
+    document.getElementById("tab-register-btn").classList.remove("active");
+    document.getElementById("form-login").classList.remove("hidden");
+    document.getElementById("form-register").classList.add("hidden");
+    document.getElementById("login-error").textContent = "";
+  });
+
+  document.getElementById("tab-register-btn").addEventListener("click", () => {
+    document.getElementById("tab-register-btn").classList.add("active");
+    document.getElementById("tab-login-btn").classList.remove("active");
+    document.getElementById("form-register").classList.remove("hidden");
+    document.getElementById("form-login").classList.add("hidden");
+    document.getElementById("register-error").textContent = "";
+  });
+
+  // Connexion
+  document.getElementById("login-btn").addEventListener("click", async () => {
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    const errEl = document.getElementById("login-error");
+    errEl.textContent = "";
+    if (!email || !password) { errEl.textContent = "Remplis tous les champs."; return; }
+    setAuthLoading(true);
+    try {
+      await firebase.auth().signInWithEmailAndPassword(email, password);
+    } catch(e) {
+      setAuthLoading(false);
+      errEl.textContent = getAuthError(e.code);
+    }
+  });
+
+  // Inscription
+  document.getElementById("register-btn").addEventListener("click", async () => {
+    const username = document.getElementById("register-username").value.trim();
+    const email = document.getElementById("register-email").value.trim();
+    const password = document.getElementById("register-password").value;
+    const confirm = document.getElementById("register-confirm").value;
+    const errEl = document.getElementById("register-error");
+    errEl.textContent = "";
+
+    if (!username) { errEl.textContent = "Choisis un nom d'utilisateur."; return; }
+    if (!email) { errEl.textContent = "Entre ton adresse email."; return; }
+    if (password.length < 6) { errEl.textContent = "Mot de passe : 6 caractères minimum."; return; }
+    if (password !== confirm) { errEl.textContent = "Les mots de passe ne correspondent pas."; return; }
+
+    setAuthLoading(true);
+    try {
+      const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
+      await cred.user.updateProfile({ displayName: username });
+    } catch(e) {
+      setAuthLoading(false);
+      errEl.textContent = getAuthError(e.code);
+    }
+  });
+
+  // Touche Entrée dans les champs
+  ["login-email","login-password"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") document.getElementById("login-btn").click();
+    });
+  });
+
+  // Déconnexion
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    if (confirm("Se déconnecter de Rugbix ?")) {
+      await saveToFirebase(); // Sauvegarde finale avant déco
+      await firebase.auth().signOut();
+      collection = {};
+      coins = 0;
+    }
+  });
+}
+
+function setAuthLoading(show) {
+  document.getElementById("auth-loading").classList.toggle("hidden", !show);
+  const activeForm = document.getElementById("form-login").classList.contains("hidden")
+    ? "form-register" : "form-login";
+  document.getElementById(activeForm).style.opacity = show ? "0.4" : "1";
+  document.getElementById(activeForm).style.pointerEvents = show ? "none" : "auto";
+}
+
+function getAuthError(code) {
+  const msgs = {
+    "auth/invalid-email":        "Adresse email invalide.",
+    "auth/user-not-found":       "Aucun compte avec cet email.",
+    "auth/wrong-password":       "Mot de passe incorrect.",
+    "auth/invalid-credential":   "Email ou mot de passe incorrect.",
+    "auth/email-already-in-use": "Cet email est déjà utilisé.",
+    "auth/weak-password":        "Mot de passe trop faible.",
+    "auth/too-many-requests":    "Trop de tentatives. Réessaie plus tard.",
+    "auth/network-request-failed":"Erreur réseau. Vérifie ta connexion."
+  };
+  return msgs[code] || "Erreur : " + code;
+}
+
+// ---------------------------------------------------------
+// INITIALISATION (après connexion Firebase)
 // ---------------------------------------------------------
 function init() {
-  loadData();
   renderPacks();
   renderCollection();
   updateCoinsDisplay();
@@ -40,19 +216,6 @@ function init() {
   setupCardDetailModal();
   setupSellConfirmModal();
   setupCoinsButton();
-}
-
-function loadData() {
-  const savedCollection = localStorage.getItem(STORAGE_KEY_COLLECTION);
-  const savedCoins = localStorage.getItem(STORAGE_KEY_COINS);
-
-  collection = savedCollection ? JSON.parse(savedCollection) : {};
-  coins = savedCoins ? parseInt(savedCoins, 10) : 200; // 200 pièces de départ
-}
-
-function saveData() {
-  localStorage.setItem(STORAGE_KEY_COLLECTION, JSON.stringify(collection));
-  localStorage.setItem(STORAGE_KEY_COINS, coins.toString());
 }
 
 // ---------------------------------------------------------
@@ -1213,9 +1376,8 @@ function doCompoType() {
   renderEquipe();
 }
 
-// ---------------------------------------------------------
 
 // ---------------------------------------------------------
 // LANCEMENT
 // ---------------------------------------------------------
-init();
+setupAuth();
