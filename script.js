@@ -6,7 +6,7 @@ const STORAGE_KEY_XV_USED = "rugby_xv_used_v1";
 const STORAGE_KEY_DAILY_LAST = "rugby_daily_last_v1";
 
 // ⚙️ MODE DÉVELOPPEMENT : mettre false en production
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -31,6 +31,13 @@ let saveTimeout = null;
 // FIREBASE — AUTH + SAUVEGARDE
 // ---------------------------------------------------------
 
+// Email admin — seul cet email voit le panneau admin
+const ADMIN_EMAIL = "n.totaro31@gmail.com";
+
+function isAdmin() {
+  return currentUser && currentUser.email === ADMIN_EMAIL;
+}
+
 // Démarrage : attendre l'état d'authentification Firebase
 firebase.auth().onAuthStateChanged(async user => {
   if (user) {
@@ -39,12 +46,26 @@ firebase.auth().onAuthStateChanged(async user => {
     document.getElementById("header-username").textContent = "👤 " + username;
     document.getElementById("auth-screen").classList.add("hidden");
     document.getElementById("game-client").classList.remove("hidden");
+
+    if (isAdmin()) {
+      document.getElementById("admin-nav-btn").classList.remove("hidden");
+    }
+
     await loadProgressFromFirebase();
+    // Toujours mettre à jour le pseudo dans Firestore
+    try {
+      await db.collection("users").doc(currentUser.uid).set(
+        { username, email: currentUser.email },
+        { merge: true }
+      );
+    } catch(e) {}
+
     init();
   } else {
     currentUser = null;
     document.getElementById("auth-screen").classList.remove("hidden");
     document.getElementById("game-client").classList.add("hidden");
+    document.getElementById("admin-nav-btn").classList.add("hidden");
   }
 });
 
@@ -58,15 +79,25 @@ async function loadProgressFromFirebase() {
       coins = data.coins !== undefined ? data.coins : 200;
       if (data.xvUsed) localStorage.setItem(STORAGE_KEY_XV_USED, "true");
       if (data.dailyLast) localStorage.setItem(STORAGE_KEY_DAILY_LAST, data.dailyLast);
+      // Restaurer l'équipe : on stocke { slotId: "name|team" } et on retrouve le joueur
+      if (data.equipe) {
+        equipe = {};
+        for (const [slotId, key] of Object.entries(data.equipe)) {
+          const player = PLAYERS.find(p => getCardKey(p) === key);
+          if (player) equipe[slotId] = player;
+        }
+      }
     } else {
       collection = {};
       coins = 200;
-      await saveToFirebase(); // Créer le document du nouveau joueur
+      equipe = {};
+      await saveToFirebase();
     }
   } catch(e) {
     console.error("Erreur chargement:", e);
     collection = {};
     coins = 200;
+    equipe = {};
   }
 }
 
@@ -76,9 +107,15 @@ function saveData() {
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
+      // Sérialiser l'équipe en { slotId: "name|team" }
+      const equipeSerialized = {};
+      for (const [slotId, player] of Object.entries(equipe)) {
+        if (player) equipeSerialized[slotId] = getCardKey(player);
+      }
       await db.collection("users").doc(currentUser.uid).set({
         collection,
         coins,
+        equipe: equipeSerialized,
         xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
         dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -92,9 +129,14 @@ function saveData() {
 async function saveToFirebase() {
   if (!currentUser) return;
   try {
+    const equipeSerialized = {};
+    for (const [slotId, player] of Object.entries(equipe)) {
+      if (player) equipeSerialized[slotId] = getCardKey(player);
+    }
     await db.collection("users").doc(currentUser.uid).set({
       collection,
       coins,
+      equipe: equipeSerialized,
       xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
       dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -253,6 +295,7 @@ function setupTabs() {
       if (btn.dataset.tab === "collection") renderCollection();
       if (btn.dataset.tab === "album") renderAlbum();
       if (btn.dataset.tab === "equipe") renderEquipe();
+      if (btn.dataset.tab === "admin" && isAdmin()) renderAdmin();
     });
   });
 
@@ -1165,6 +1208,7 @@ function renderEquipe() {
   document.getElementById("reset-equipe-btn").onclick = () => {
     equipe = {};
     renderEquipe();
+    saveData();
   };
 
   setupPlayerSelectModal();
@@ -1265,6 +1309,7 @@ function openPlayerSelect(slot) {
       delete equipe[currentSlotId];
       closePlayerSelect();
       renderEquipe();
+      saveData();
     };
     list.appendChild(removeBtn);
   }
@@ -1334,6 +1379,7 @@ function buildPlayerSelectRow(player, slot) {
       equipe[currentSlotId] = player;
       closePlayerSelect();
       renderEquipe();
+      saveData();
     });
   }
 
@@ -1374,8 +1420,292 @@ function doCompoType() {
 
   equipe = newEquipe;
   renderEquipe();
+  saveData();
 }
 
+
+// ---------------------------------------------------------
+// PANNEAU ADMIN (ChocoDeLaVega uniquement)
+// ---------------------------------------------------------
+let adminUsers = [];
+
+async function renderAdmin() {
+  if (!isAdmin()) return;
+  const container = document.getElementById("admin-container");
+  container.innerHTML = `<div class="admin-loading">⏳ Chargement...</div>`;
+
+  try {
+    const snapshot = await db.collection("users").get();
+    adminUsers = [];
+    snapshot.forEach(doc => adminUsers.push({ uid: doc.id, ...doc.data() }));
+  } catch(e) {
+    container.innerHTML = `<div class="admin-error">❌ Erreur : ${e.message}</div>`;
+    return;
+  }
+
+  const totalCoins = adminUsers.reduce((s,u) => s+(u.coins||0), 0);
+  const totalCards = adminUsers.reduce((s,u) => {
+    if (!u.collection) return s;
+    return s + Object.values(u.collection).reduce((a,e) => a + (typeof e==="object"?(e.count||1):e), 0);
+  }, 0);
+
+  const userOptions = adminUsers.map(u =>
+    `<option value="${u.uid}">${u.uid===currentUser.uid?"👑":""} ${u.username||"?"} — ${u.coins||0} R</option>`
+  ).join("");
+
+  container.innerHTML = `
+    <div class="admin-grid">
+
+      <div class="admin-card">
+        <h3>📊 Statistiques</h3>
+        <div class="admin-stat"><span>Joueurs inscrits</span><strong>${adminUsers.length}</strong></div>
+        <div class="admin-stat"><span>RUGBIZ en circulation</span><strong>${totalCoins}</strong></div>
+        <div class="admin-stat"><span>Cartes obtenues</span><strong>${totalCards}</strong></div>
+        <div class="admin-stat"><span>Joueurs en base</span><strong>${PLAYERS.length}</strong></div>
+        <div class="admin-stat"><span>DEV_MODE</span><strong style="color:${DEV_MODE?"#05DF72":"#ff6b6b"}">${DEV_MODE?"ON":"OFF"}</strong></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>💰 Envoyer des RUGBIZ</h3>
+        <div class="admin-form">
+          <select id="admin-send-coins-user" class="admin-select"><option value="">-- Joueur --</option>${userOptions}</select>
+          <div class="admin-row">
+            <input type="number" id="admin-coins-amount" class="admin-input" placeholder="Montant" min="1" value="500">
+            <button id="admin-send-coins-btn" class="admin-btn">Envoyer</button>
+          </div>
+          <div id="admin-coins-status" class="admin-status"></div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>📦 Envoyer un Pack</h3>
+        <div class="admin-form">
+          <select id="admin-send-pack-user" class="admin-select"><option value="">-- Joueur --</option>${userOptions}</select>
+          <select id="admin-pack-select" class="admin-select">
+            ${PACKS.map(p=>`<option value="${p.id}">${p.name}</option>`).join("")}
+          </select>
+          <button id="admin-send-pack-btn" class="admin-btn">Envoyer le pack</button>
+          <div id="admin-pack-status" class="admin-status"></div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>🃏 Envoyer une carte</h3>
+        <div class="admin-form">
+          <select id="admin-send-card-user" class="admin-select"><option value="">-- Joueur --</option>${userOptions}</select>
+          <input type="text" id="admin-card-search" class="admin-input" placeholder="🔍 Rechercher (ex: Dupont)">
+          <select id="admin-card-select" class="admin-select" size="5" style="height:110px"></select>
+          <button id="admin-send-card-btn" class="admin-btn">Envoyer la carte</button>
+          <div id="admin-card-status" class="admin-status"></div>
+        </div>
+      </div>
+
+      <div class="admin-card admin-card-full">
+        <h3>⚽ Base de données joueurs</h3>
+        <div class="admin-db-tabs">
+          <button class="admin-db-tab active" id="admin-tab-add">➕ Ajouter</button>
+          <button class="admin-db-tab" id="admin-tab-remove">🗑️ Supprimer</button>
+        </div>
+        <div id="admin-form-add" class="admin-db-form">
+          <div class="admin-row">
+            <input type="text" id="new-player-name" class="admin-input" placeholder="Nom complet">
+            <select id="new-player-team" class="admin-select">
+              ${Object.entries(TEAMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("")}
+            </select>
+          </div>
+          <div class="admin-row">
+            <input type="text" id="new-player-positions" class="admin-input" placeholder="Postes (séparés par |)">
+            <select id="new-player-rarity" class="admin-select">
+              ${Object.entries(RARITIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}
+            </select>
+          </div>
+          <div class="admin-row">
+            <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
+            <button id="admin-add-player-btn" class="admin-btn">Ajouter</button>
+          </div>
+          <div id="admin-add-player-status" class="admin-status"></div>
+          <p class="admin-note">⚠️ Ajout en mémoire uniquement. Ajoute aussi dans Google Sheets pour le rendre permanent.</p>
+        </div>
+        <div id="admin-form-remove" class="admin-db-form hidden">
+          <input type="text" id="remove-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
+          <select id="remove-player-select" class="admin-select" size="6" style="height:140px"></select>
+          <button id="admin-remove-player-btn" class="admin-btn" style="background:#cc0000;color:#fff">Supprimer</button>
+          <div id="admin-remove-player-status" class="admin-status"></div>
+          <p class="admin-note">⚠️ Suppression en mémoire uniquement. Supprime aussi dans Google Sheets pour le rendre permanent.</p>
+        </div>
+      </div>
+
+      <div class="admin-card admin-card-full">
+        <h3>👥 Comptes joueurs</h3>
+        <div class="admin-users-list">
+          ${adminUsers.map(u => {
+            const cardCount = u.collection
+              ? Object.values(u.collection).reduce((a,e)=>a+(typeof e==="object"?(e.count||1):e),0)
+              : 0;
+            const isMe = u.uid === currentUser.uid;
+            const last = u.lastSaved?.seconds
+              ? new Date(u.lastSaved.seconds*1000).toLocaleDateString("fr-FR")
+              : "jamais";
+            return `<div class="admin-user-row ${isMe?"admin-user-me":""}">
+              <span class="admin-user-pseudo">${isMe?"👑":"👤"} <strong>${u.username||"?"}</strong></span>
+              <span class="admin-user-email">${u.email||"—"}</span>
+              <span class="admin-user-stat">${u.coins||0} R</span>
+              <span class="admin-user-stat">${cardCount} cartes</span>
+              <span class="admin-user-stat">🕐 ${last}</span>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  // Pré-remplir la liste de cartes
+  refreshAdminCardList("");
+  refreshRemovePlayerList("");
+  bindAdminEvents();
+}
+
+function refreshAdminCardList(q) {
+  const sel = document.getElementById("admin-card-select");
+  if (!sel) return;
+  const filtered = PLAYERS.filter(p =>
+    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
+    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
+  ).slice(0, 60);
+  sel.innerHTML = filtered.map(p =>
+    `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
+  ).join("");
+}
+
+function refreshRemovePlayerList(q) {
+  const sel = document.getElementById("remove-player-select");
+  if (!sel) return;
+  const filtered = PLAYERS.filter(p =>
+    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
+    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
+  ).slice(0, 60);
+  sel.innerHTML = filtered.map(p =>
+    `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
+  ).join("");
+}
+
+function bindAdminEvents() {
+  // Envoyer RUGBIZ
+  document.getElementById("admin-send-coins-btn").onclick = async () => {
+    const uid = document.getElementById("admin-send-coins-user").value;
+    const amount = parseInt(document.getElementById("admin-coins-amount").value, 10);
+    const st = document.getElementById("admin-coins-status");
+    if (!uid) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    if (!amount || amount <= 0) { st.textContent = "⚠️ Montant invalide."; return; }
+    st.textContent = "Envoi...";
+    try {
+      const doc = await db.collection("users").doc(uid).get();
+      const newCoins = (doc.data().coins||0) + amount;
+      await db.collection("users").doc(uid).update({ coins: newCoins });
+      if (uid === currentUser.uid) { coins = newCoins; updateCoinsDisplay(); }
+      const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      st.textContent = `✓ +${amount} RUGBIZ → ${pseudo}`;
+      setTimeout(() => renderAdmin(), 2000);
+    } catch(e) { st.textContent = "❌ " + e.message; }
+  };
+
+  // Envoyer un Pack
+  document.getElementById("admin-send-pack-btn").onclick = async () => {
+    const uid = document.getElementById("admin-send-pack-user").value;
+    const packId = document.getElementById("admin-pack-select").value;
+    const st = document.getElementById("admin-pack-status");
+    if (!uid) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    const pack = PACKS.find(p=>p.id===packId);
+    if (!pack) return;
+    st.textContent = "Envoi...";
+    try {
+      const doc = await db.collection("users").doc(uid).get();
+      const userCollection = doc.data()?.collection || {};
+      const drawn = [];
+      for (let i = 0; i < pack.cardsCount; i++) {
+        drawn.push(pack.forcedRarity ? drawCardOfRarity(pack.forcedRarity) : drawRandomCard(pack));
+      }
+      drawn.forEach(card => {
+        const key = getCardKey(card);
+        const ex = userCollection[key] || { count:0, lockedCount:0 };
+        userCollection[key] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
+      });
+      await db.collection("users").doc(uid).update({ collection: userCollection });
+      const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      st.textContent = `✓ ${pack.name} (${drawn.length} cartes) → ${pseudo}`;
+    } catch(e) { st.textContent = "❌ " + e.message; }
+  };
+
+  // Recherche carte
+  document.getElementById("admin-card-search").oninput = (e) => refreshAdminCardList(e.target.value);
+
+  // Envoyer une carte
+  document.getElementById("admin-send-card-btn").onclick = async () => {
+    const uid = document.getElementById("admin-send-card-user").value;
+    const cardKey = document.getElementById("admin-card-select").value;
+    const st = document.getElementById("admin-card-status");
+    if (!uid) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    if (!cardKey) { st.textContent = "⚠️ Sélectionne une carte."; return; }
+    st.textContent = "Envoi...";
+    try {
+      const doc = await db.collection("users").doc(uid).get();
+      const userCollection = doc.data()?.collection || {};
+      const ex = userCollection[cardKey] || { count:0, lockedCount:0 };
+      userCollection[cardKey] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
+      await db.collection("users").doc(uid).update({ collection: userCollection });
+      const player = PLAYERS.find(p=>getCardKey(p)===cardKey);
+      const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      st.textContent = `✓ ${player?.name} → ${pseudo}`;
+    } catch(e) { st.textContent = "❌ " + e.message; }
+  };
+
+  // Tabs add/remove
+  document.getElementById("admin-tab-add").onclick = () => {
+    document.getElementById("admin-tab-add").classList.add("active");
+    document.getElementById("admin-tab-remove").classList.remove("active");
+    document.getElementById("admin-form-add").classList.remove("hidden");
+    document.getElementById("admin-form-remove").classList.add("hidden");
+  };
+  document.getElementById("admin-tab-remove").onclick = () => {
+    document.getElementById("admin-tab-remove").classList.add("active");
+    document.getElementById("admin-tab-add").classList.remove("active");
+    document.getElementById("admin-form-remove").classList.remove("hidden");
+    document.getElementById("admin-form-add").classList.add("hidden");
+  };
+
+  // Ajouter joueur
+  document.getElementById("admin-add-player-btn").onclick = () => {
+    const name = document.getElementById("new-player-name").value.trim();
+    const team = document.getElementById("new-player-team").value;
+    const positions = document.getElementById("new-player-positions").value.split("|").map(p=>p.trim()).filter(Boolean);
+    const rarity = document.getElementById("new-player-rarity").value;
+    const nat = document.getElementById("new-player-nat").value.trim() || "FRA";
+    const st = document.getElementById("admin-add-player-status");
+    if (!name) { st.textContent = "⚠️ Entre un nom."; return; }
+    if (!positions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
+    PLAYERS.push({ name, team, positions, rarity, nat });
+    st.textContent = `✓ ${name} ajouté en mémoire.`;
+    document.getElementById("new-player-name").value = "";
+    document.getElementById("new-player-positions").value = "";
+  };
+
+  // Recherche suppression
+  document.getElementById("remove-player-search").oninput = (e) => refreshRemovePlayerList(e.target.value);
+
+  // Supprimer joueur
+  document.getElementById("admin-remove-player-btn").onclick = () => {
+    const key = document.getElementById("remove-player-select").value;
+    const st = document.getElementById("admin-remove-player-status");
+    if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    const idx = PLAYERS.findIndex(p=>getCardKey(p)===key);
+    if (idx===-1) { st.textContent = "⚠️ Introuvable."; return; }
+    const name = PLAYERS[idx].name;
+    PLAYERS.splice(idx, 1);
+    st.textContent = `✓ ${name} supprimé en mémoire.`;
+    refreshRemovePlayerList("");
+  };
+}
 
 // ---------------------------------------------------------
 // LANCEMENT

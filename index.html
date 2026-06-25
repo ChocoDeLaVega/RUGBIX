@@ -34,7 +34,7 @@ const db = firebase.firestore();
   <div class="auth-box">
     <div class="auth-logo">🏉</div>
     <div class="auth-title">RUGBIX</div>
-    <div class="auth-subtitle">Pack Opening TOP 14</div>
+    <div class="auth-subtitle">Pack Opening &amp; Matchs Rugby</div>
 
     <!-- Tabs -->
     <div class="auth-tabs">
@@ -92,6 +92,7 @@ const db = firebase.firestore();
       <button class="nav-btn" data-tab="collection">👤 MON CLUB</button>
       <button class="nav-btn" data-tab="equipe">🏉 MON ÉQUIPE</button>
       <button class="nav-btn" data-tab="album">📖 ALBUM</button>
+      <button class="nav-btn hidden" id="admin-nav-btn" data-tab="admin">⚙️ ADMIN</button>
     </nav>
 
     <!-- Zone centrale scrollable -->
@@ -157,6 +158,15 @@ const db = firebase.firestore();
           </select>
         </div>
         <div id="album-container" class="cards-grid"></div>
+      </section>
+
+      <!-- ===== ONGLET ADMIN ===== -->
+      <section id="tab-admin" class="tab-content">
+        <div class="section-header">
+          <h1 class="section-title">⚙️ Administration</h1>
+          <span class="admin-badge">ChocoDeLaVega</span>
+        </div>
+        <div id="admin-container"></div>
       </section>
 
     </main>
