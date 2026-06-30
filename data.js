@@ -283,7 +283,7 @@ const PLAYERS = [
   { name: "Lucas Zamorano", team: "lapelle", positions: ["Demi de mêlée"], rarity: "commune", nat: "FRA" },
   { name: "Antoine Hastoy", team: "lapelle", positions: ["Demi d'ouverture","Arrière"], rarity: "rare", nat: "FRA" },
   { name: "Ihaia West", team: "lapelle", positions: ["Demi d'ouverture"], rarity: "commune", nat: "NZL" },
-  { name: "Levani Botia", team: "lapelle", positions: ["Centre"], rarity: "epique", nat: "FIJ" },
+  { name: "Levani Botia", team: "lapelle", positions: ["Centre","Troisième ligne"], rarity: "epique", nat: "FIJ" },
   { name: "Jonathan Danty", team: "lapelle", positions: ["Centre"], rarity: "rare", nat: "FRA" },
   { name: "Ulupano Seuteni", team: "lapelle", positions: ["Centre"], rarity: "commune", nat: "SAM" },
   { name: "Jules Favre", team: "lapelle", positions: ["Centre","Ailier"], rarity: "commune", nat: "FRA" },
