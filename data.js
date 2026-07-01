@@ -680,6 +680,18 @@ const LEGENDS = [
   { name: "Bryan Habana", team: "toulon", clubs: ["toulon"], positions: ["Ailier"], rarity: "legendaire", nat: "AFS" },
   { name: "Sergio Parisse", team: "stadefr", clubs: ["stadefr","toulon"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "ITA" },
   { name: "Brock James", team: "clermont", clubs: ["clermont"], positions: ["Demi d'ouverture"], rarity: "legendaire", nat: "AUS" },
+  { name: "Mario Ledesma", team: "clermont", clubs: ["clermont"], positions: ["Talonneur"], rarity: "legendaire", nat: "ARG" },
+  { name: "Takudzwa Ngwenya", team: "biarritz", clubs: ["biarritz"], positions: ["Ailier"], rarity: "legendaire", nat: "USA" },
+  { name: "Rodrigo Capo Ortega", team: "castres", clubs: ["castres"], positions: ["Deuxième ligne"], rarity: "legendaire", nat: "URU" },
+  { name: "Johnny Sexton", team: "racing92", clubs: ["racing92"], positions: ["Demi d'ouverture"], rarity: "legendaire", nat: "IRL" },
+  { name: "Mamuka Gorgodze", team: "toulon", clubs: ["montpellier","toulon"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "GEO" },
+  { name: "Napolioni Nalaga", team: "clermont", clubs: ["clermont"], positions: ["Ailier"], rarity: "legendaire", nat: "FIJ" },
+  { name: "Lionel Nallet", team: "castres", clubs: ["castres","racing92"], positions: ["Deuxième ligne"], rarity: "legendaire", nat: "FRA" },
+  { name: "Louis Picamoles", team: "montpellier", clubs: ["montpellier","toulouse"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "FRA" },
+  { name: "François Steyn", team: "montpellier", clubs: ["montpellier"], positions: ["Centre"], rarity: "legendaire", nat: "AFS" },
+  { name: "Carl Hayman", team: "toulon", clubs: ["toulon"], positions: ["Pilier"], rarity: "legendaire", nat: "NZL" },
+	
+	
 	
 ];
 
