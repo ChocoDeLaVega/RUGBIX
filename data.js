@@ -199,7 +199,6 @@ const PLAYERS = [
   { name: "Vincent Giudicelli", team: "bayonne", positions: ["Talonneur"], rarity: "commune", nat: "FRA" },
   { name: "Lucas Martin", team: "bayonne", positions: ["Talonneur"], rarity: "commune", nat: "FRA" },
   { name: "Swan Cormenier", team: "bayonne", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
-  { name: "Pascal Cotet", team: "bayonne", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
   { name: "Luke Tagi", team: "bayonne", positions: ["Pilier"], rarity: "commune", nat: "FIJ" },
   { name: "Tom Spring", team: "bayonne", positions: ["Arrière"], rarity: "commune", nat: "FRA" },
   { name: "Andy Bordelai", team: "bayonne", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
@@ -213,7 +212,6 @@ const PLAYERS = [
   { name: "Herschel Jantjies", team: "bayonne", positions: ["Demi de mêlée"], rarity: "rare", nat: "AFS" },
   { name: "Baptiste Germain", team: "clermont", positions: ["Demi de mêlée"], rarity: "commune", nat: "FRA" },
   { name: "Léo Coly", team: "bayonne", positions: ["Demi de mêlée","Demi d'ouverture"], rarity: "rare", nat: "FRA" },
-  { name: "Reece Hodge", team: "bayonne", positions: ["Centre"], rarity: "rare", nat: "AUS" },
   { name: "Nadir Megdoud", team: "bayonne", positions: ["Ailier"], rarity: "commune", nat: "FRA" },
   { name: "Yohan Orabé", team: "bayonne", positions: ["Arrière"], rarity: "commune", nat: "FRA" },
   
@@ -260,7 +258,7 @@ const PLAYERS = [
 { name: "Romaric Camou", team: "vannes", positions: ["Ailier"], rarity: "commune", nat: "FRA" },
 { name: "Ben Stevenson", team: "vannes", positions: ["Ailier"], rarity: "commune", nat: "ANG" },
 { name: "Paul Surano", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "FRA" },
-{ name: "Gwenaël Duplenne", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "FRA" },
+{ name: "Gwenaël Duplenne", team: "vannes", positions: ["Arrière"], rarity: "commune", nat: "FRA" },
 { name: "Anthony Bouthier", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "FRA" },
 
   // ----- MONTPELLIER -----
@@ -341,7 +339,7 @@ const PLAYERS = [
   { name: "Antoine Frisch", team: "toulon", positions: ["Centre"], rarity: "rare", nat: "FRA" },
   { name: "Juan Ignacio Brex", team: "toulon", positions: ["Centre"], rarity: "rare", nat: "ITA" },
   { name: "Oliver Cowie", team: "toulon", positions: ["Centre"], rarity: "commune", nat: "FRA" },
-  { name: "Ma'a Nonu", team: "toulon", positions: ["Centre"], rarity: "legende", nat: "NZL" },
+  { name: "Ma'a Nonu", team: "toulon", positions: ["Centre"], rarity: "legendaire", nat: "NZL" },
   { name: "Mathieu Smaïli", team: "toulon", positions: ["Centre","Ailier"], rarity: "commune", nat: "FRA" },
   { name: "Rayan Rebbadj", team: "toulon", positions: ["Centre","Ailier"], rarity: "commune", nat: "FRA" },
   { name: "Gabbin Villière", team: "toulon", positions: ["Ailier"], rarity: "rare", nat: "FRA" },
@@ -542,7 +540,7 @@ const PLAYERS = [
   { name: "Reece Hewat", team: "pau", positions: ["Troisième ligne"], rarity: "rare", nat: "AUS" },
   { name: "Sacha Zegueur", team: "pau", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
   { name: "Loïc Credoz", team: "pau", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
-  { name: "Luke Whitelock", team: "pau", positions: ["Troisième ligne"], rarity: "legende", nat: "NZL" },
+  { name: "Luke Whitelock", team: "pau", positions: ["Troisième ligne"], rarity: "legendaire", nat: "NZL" },
   { name: "Thibault Daubagna", team: "pau", positions: ["Demi de mêlée"], rarity: "rare", nat: "FRA" },
   { name: "Thomas Souverbie", team: "pau", positions: ["Demi de mêlée"], rarity: "commune", nat: "FRA" },
   { name: "Joe Simmonds", team: "pau", positions: ["Demi d'ouverture"], rarity: "rare", nat: "ANG" },
