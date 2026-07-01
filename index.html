@@ -316,6 +316,20 @@ const db = firebase.firestore();
     </div>
   </div>
 </div>
+<!-- ===== MODALE CADEAU REÇU ===== -->
+<div id="gift-modal" class="modal hidden">
+  <div class="modal-content gift-modal-content">
+    <div class="gift-header">
+      <div class="gift-icon">🎁</div>
+      <h2 class="gift-title">Cadeau reçu !</h2>
+      <p class="gift-from">De la part de <strong>ChocoDeLaVega</strong></p>
+    </div>
+    <div id="gift-body" class="gift-body"></div>
+    <button id="close-gift-btn" class="auth-btn" style="margin-top:1.2rem">Super, merci !</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

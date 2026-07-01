@@ -277,6 +277,107 @@ function init() {
   setupCardDetailModal();
   setupSellConfirmModal();
   setupCoinsButton();
+  setupGiftListener();
+  setupGiftModal();
+}
+
+// ---------------------------------------------------------
+// SYSTÈME DE CADEAUX EN TEMPS RÉEL
+// ---------------------------------------------------------
+function setupGiftListener() {
+  if (!currentUser) return;
+
+  // Écoute la sous-collection "gifts" du joueur en temps réel
+  db.collection("users").doc(currentUser.uid).collection("gifts")
+    .where("seen", "==", false)
+    .onSnapshot(async snapshot => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === "added") {
+          const gift = change.doc.data();
+          const giftId = change.doc.id;
+
+          // Appliquer le cadeau à la progression locale
+          await applyGift(gift);
+
+          // Marquer comme vu
+          await db.collection("users").doc(currentUser.uid)
+            .collection("gifts").doc(giftId).update({ seen: true });
+
+          // Afficher la modale
+          showGiftModal(gift);
+        }
+      }
+    });
+}
+
+async function applyGift(gift) {
+  if (gift.type === "coins") {
+    coins += gift.amount;
+    updateCoinsDisplay();
+    saveData();
+    renderPacks();
+  } else if (gift.type === "card") {
+    const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
+    if (player) {
+      addCardToCollection(player, false);
+      saveData();
+      renderCollection();
+    }
+  } else if (gift.type === "pack") {
+    // Les cartes sont déjà ajoutées par l'admin côté Firestore
+    // On recharge la progression pour synchroniser
+    await loadProgressFromFirebase();
+    renderCollection();
+    updateCoinsDisplay();
+  }
+}
+
+function showGiftModal(gift) {
+  const body = document.getElementById("gift-body");
+  body.innerHTML = "";
+
+  if (gift.type === "coins") {
+    body.innerHTML = `
+      <div class="gift-coins">
+        <div class="gift-coins-amount">+${gift.amount}</div>
+        <div class="gift-coins-label"><span class="rubiz-symbol">R</span> RUGBIZ</div>
+      </div>`;
+
+  } else if (gift.type === "card") {
+    const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
+    if (player) {
+      const cardEl = buildCardElement(player, null, {});
+      cardEl.classList.add("gift-card");
+      body.appendChild(cardEl);
+    } else {
+      body.innerHTML = `<p class="gift-text">Une nouvelle carte a été ajoutée à ta collection !</p>`;
+    }
+
+  } else if (gift.type === "pack") {
+    const pack = PACKS.find(p => p.id === gift.packId);
+    body.innerHTML = `<div class="gift-pack-name">${pack?.name || "Un pack"}</div>`;
+    if (gift.cards && gift.cards.length) {
+      const grid = document.createElement("div");
+      grid.className = "gift-cards-grid";
+      gift.cards.forEach(cardKey => {
+        const player = PLAYERS.find(p => getCardKey(p) === cardKey);
+        if (player) {
+          const el = buildCardElement(player, null, {});
+          el.classList.add("gift-card");
+          grid.appendChild(el);
+        }
+      });
+      body.appendChild(grid);
+    }
+  }
+
+  document.getElementById("gift-modal").classList.remove("hidden");
+}
+
+function setupGiftModal() {
+  document.getElementById("close-gift-btn").addEventListener("click", () => {
+    document.getElementById("gift-modal").classList.add("hidden");
+  });
 }
 
 // ---------------------------------------------------------
@@ -1770,6 +1871,13 @@ function bindAdminEvents() {
       const doc = await db.collection("users").doc(uid).get();
       const newCoins = (doc.data().coins||0) + amount;
       await db.collection("users").doc(uid).update({ coins: newCoins });
+      // Notifier le joueur via gift
+      await db.collection("users").doc(uid).collection("gifts").add({
+        type: "coins",
+        amount,
+        seen: false,
+        sentAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
       if (uid === currentUser.uid) { coins = newCoins; updateCoinsDisplay(); }
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
       st.textContent = `✓ +${amount} RUGBIZ → ${pseudo}`;
@@ -1793,12 +1901,22 @@ function bindAdminEvents() {
       for (let i = 0; i < pack.cardsCount; i++) {
         drawn.push(pack.forcedRarity ? drawCardOfRarity(pack.forcedRarity) : drawRandomCard(pack));
       }
+      const cardKeys = [];
       drawn.forEach(card => {
         const key = getCardKey(card);
+        cardKeys.push(key);
         const ex = userCollection[key] || { count:0, lockedCount:0 };
         userCollection[key] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
       });
       await db.collection("users").doc(uid).update({ collection: userCollection });
+      // Notifier le joueur
+      await db.collection("users").doc(uid).collection("gifts").add({
+        type: "pack",
+        packId,
+        cards: cardKeys,
+        seen: false,
+        sentAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
       st.textContent = `✓ ${pack.name} (${drawn.length} cartes) → ${pseudo}`;
     } catch(e) { st.textContent = "❌ " + e.message; }
@@ -1821,6 +1939,13 @@ function bindAdminEvents() {
       const ex = userCollection[cardKey] || { count:0, lockedCount:0 };
       userCollection[cardKey] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
       await db.collection("users").doc(uid).update({ collection: userCollection });
+      // Notifier le joueur
+      await db.collection("users").doc(uid).collection("gifts").add({
+        type: "card",
+        cardKey,
+        seen: false,
+        sentAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
       const player = PLAYERS.find(p=>getCardKey(p)===cardKey);
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
       st.textContent = `✓ ${player?.name} → ${pseudo}`;
