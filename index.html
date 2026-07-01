@@ -47,7 +47,9 @@ const db = firebase.firestore();
       <input type="email" id="login-email" class="auth-input" placeholder="Adresse email">
       <input type="password" id="login-password" class="auth-input" placeholder="Mot de passe">
       <button id="login-btn" class="auth-btn">Se connecter</button>
+      <button id="forgot-password-btn" class="auth-link">Mot de passe oublié ?</button>
       <div id="login-error" class="auth-error"></div>
+      <div id="forgot-status" class="auth-success"></div>
     </div>
 
     <!-- Formulaire inscription -->
@@ -114,12 +116,19 @@ const db = firebase.firestore();
           <label for="sort-select">Trier par :</label>
           <select id="sort-select">
             <option value="rarity">Rareté</option>
+            <option value="recent">Carte Récente</option>
             <option value="alpha">Ordre alphabétique</option>
             <option value="club">Club</option>
             <option value="position">Poste</option>
             <option value="nationality">Nationalité</option>
           </select>
           <select id="position-filter-select" class="hidden">
+            <option value="all">Tous les postes</option>
+          </select>
+          <select id="club-filter-select" class="hidden">
+            <option value="all">Tous les clubs</option>
+          </select>
+          <select id="poste-filter-select" class="hidden">
             <option value="all">Tous les postes</option>
           </select>
         </div>
@@ -148,12 +157,19 @@ const db = firebase.firestore();
           <label for="album-sort-select">Trier par :</label>
           <select id="album-sort-select">
             <option value="rarity">Rareté</option>
+            <option value="recent">Carte Récente</option>
             <option value="alpha">Ordre alphabétique</option>
             <option value="club">Club</option>
             <option value="position">Poste</option>
             <option value="nationality">Nationalité</option>
           </select>
           <select id="album-position-filter-select" class="hidden">
+            <option value="all">Tous les postes</option>
+          </select>
+          <select id="album-club-filter-select" class="hidden">
+            <option value="all">Tous les clubs</option>
+          </select>
+          <select id="album-poste-filter-select" class="hidden">
             <option value="all">Tous les postes</option>
           </select>
         </div>
@@ -170,6 +186,52 @@ const db = firebase.firestore();
       </section>
 
     </main>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="game-footer">
+    <button class="footer-link" id="footer-mentions-btn">Mentions Légales</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link" id="footer-privacy-btn">Politique de confidentialité</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link" id="footer-contact-btn">Contact</button>
+    <span class="footer-sep">·</span>
+    <span class="footer-version">Version 1</span>
+  </footer>
+
+</div>
+
+<!-- ===== MODALE MENTIONS LÉGALES ===== -->
+<div id="mentions-modal" class="modal hidden">
+  <div class="modal-content legal-modal-content">
+    <button class="close-x-btn" id="close-mentions-btn">✕</button>
+    <h2 class="legal-title">Mentions Légales</h2>
+    <div class="legal-body">
+      <p>Rugbix est un jeu de collection virtuel créé par des passionnés de rugby.</p>
+      <p>Rugbix n'est ni affilié, ni sponsorisé, ni approuvé par les clubs, ligues, fédérations ou joueurs mentionnés dans le jeu.</p>
+      <p>Les noms de joueurs et de clubs sont utilisés à titre informatif afin de représenter l'univers du rugby.</p>
+      <p>Le contenu du jeu Rugbix est protégé par le droit d'auteur.</p>
+      <p>Toute reproduction ou redistribution non autorisée du jeu, de son code ou de ses éléments est interdite.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALE POLITIQUE DE CONFIDENTIALITÉ ===== -->
+<div id="privacy-modal" class="modal hidden">
+  <div class="modal-content legal-modal-content">
+    <button class="close-x-btn" id="close-privacy-btn">✕</button>
+    <h2 class="legal-title">Politique de confidentialité</h2>
+    <div class="legal-body">
+      <p>Les données suivantes peuvent être collectées :</p>
+      <ul class="legal-list">
+        <li>Adresse email</li>
+        <li>Pseudo</li>
+        <li>Progression du compte</li>
+        <li>Collection de cartes</li>
+        <li>RUGBIZ</li>
+      </ul>
+      <p>Ces données sont utilisées uniquement pour le fonctionnement de Rugbix. Elles ne seront ni communiquées ni revendues.</p>
+    </div>
   </div>
 </div>
 
@@ -215,7 +277,45 @@ const db = firebase.firestore();
   </div>
 </div>
 
-<script src="data.js"></script>
+<!-- ===== MODALE CONTACT ===== -->
+<div id="contact-modal" class="modal hidden">
+  <div class="modal-content contact-modal-content">
+    <button class="close-x-btn" id="close-contact-btn">✕</button>
+    <div class="contact-container">
+      <h2>📩 Contact Rugbix</h2>
+      <form
+        id="contactForm"
+        action="https://formsubmit.co/n.totaro31@gmail.com"
+        method="POST"
+      >
+        <!-- Options FormSubmit -->
+        <input type="hidden" name="_subject" value="Message Rugbix">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="_next" value="about:blank">
+
+        <input type="text" id="contactName" name="pseudo" class="contact-input" placeholder="Votre pseudo" required>
+        <input type="email" id="contactEmail" name="email" class="contact-input" placeholder="Votre email" required>
+        <select id="contactSubject" name="sujet" class="contact-input">
+          <option value="Bug">Signaler un bug</option>
+          <option value="Suggestion">Suggestion</option>
+          <option value="Compte">Problème de compte</option>
+          <option value="Autre">Autre</option>
+        </select>
+        <textarea
+          id="contactMessage"
+          name="message"
+          class="contact-input"
+          placeholder="Décrivez votre demande..."
+          rows="6"
+          required
+        ></textarea>
+        <button type="submit" class="contact-submit-btn">Envoyer</button>
+      </form>
+      <p id="contactSuccess" class="contact-success hidden">✅ Votre message a été envoyé. Merci !</p>
+    </div>
+  </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>

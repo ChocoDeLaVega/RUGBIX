@@ -5,8 +5,8 @@
 const STORAGE_KEY_XV_USED = "rugby_xv_used_v1";
 const STORAGE_KEY_DAILY_LAST = "rugby_daily_last_v1";
 
-// ⚙️ MODE DÉVELOPPEMENT : mettre false en production
-const DEV_MODE = false;
+// ⚙️ DEV_MODE — toggleable depuis le panneau admin
+let DEV_MODE = true;
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -213,6 +213,25 @@ function setupAuth() {
     });
   });
 
+  // Mot de passe oublié
+  document.getElementById("forgot-password-btn").addEventListener("click", async () => {
+    const email = document.getElementById("login-email").value.trim();
+    const statusEl = document.getElementById("forgot-status");
+    const errEl = document.getElementById("login-error");
+    errEl.textContent = "";
+    statusEl.textContent = "";
+    if (!email) {
+      errEl.textContent = "Entre ton email ci-dessus pour réinitialiser ton mot de passe.";
+      return;
+    }
+    try {
+      await firebase.auth().sendPasswordResetEmail(email);
+      statusEl.textContent = `✓ Email envoyé à ${email} — vérifie ta boîte de réception.`;
+    } catch(e) {
+      errEl.textContent = getAuthError(e.code);
+    }
+  });
+
   // Déconnexion
   document.getElementById("logout-btn").addEventListener("click", async () => {
     if (confirm("Se déconnecter de Rugbix ?")) {
@@ -273,7 +292,16 @@ function updateCoinsDisplay() {
 }
 
 function setupCoinsButton() {
-  document.getElementById("add-coins-btn").addEventListener("click", () => {
+  const btn = document.getElementById("add-coins-btn");
+  // Visible uniquement pour l'admin en DEV_MODE
+  function updateBtnVisibility() {
+    btn.style.display = (isAdmin() && DEV_MODE) ? "inline-block" : "none";
+  }
+  updateBtnVisibility();
+  window._updateCoinsBtnVisibility = updateBtnVisibility; // appelé au toggle DEV_MODE
+
+  btn.addEventListener("click", () => {
+    if (!isAdmin() || !DEV_MODE) return;
     coins += 100;
     saveData();
     updateCoinsDisplay();
@@ -288,10 +316,8 @@ function setupTabs() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-
       btn.classList.add("active");
       document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-
       if (btn.dataset.tab === "collection") renderCollection();
       if (btn.dataset.tab === "album") renderAlbum();
       if (btn.dataset.tab === "equipe") renderEquipe();
@@ -299,19 +325,100 @@ function setupTabs() {
     });
   });
 
-  // Tri Mon effectif
+  // Mon Club
   document.getElementById("sort-select").addEventListener("change", () => {
-    updatePositionFilterVisibility("collection");
+    updateSecondaryFilters("collection");
     renderCollection();
   });
   document.getElementById("position-filter-select").addEventListener("change", renderCollection);
+  document.getElementById("club-filter-select").addEventListener("change", () => {
+    updatePosteFilterForClub("collection");
+    renderCollection();
+  });
+  document.getElementById("poste-filter-select").addEventListener("change", renderCollection);
 
-  // Tri Album
+  // Album
   document.getElementById("album-sort-select").addEventListener("change", () => {
-    updatePositionFilterVisibility("album");
+    updateSecondaryFilters("album");
     renderAlbum();
   });
   document.getElementById("album-position-filter-select").addEventListener("change", renderAlbum);
+  document.getElementById("album-club-filter-select").addEventListener("change", () => {
+    updatePosteFilterForClub("album");
+    renderAlbum();
+  });
+  document.getElementById("album-poste-filter-select").addEventListener("change", renderAlbum);
+}
+
+const POSITION_ORDER = [
+  "Pilier", "Talonneur", "Deuxième ligne", "Troisième ligne",
+  "Demi de mêlée", "Demi d'ouverture", "Centre", "Ailier", "Arrière"
+];
+
+function updateSecondaryFilters(tab) {
+  const isAlbum = tab === "album";
+  const sortMode = document.getElementById(isAlbum ? "album-sort-select" : "sort-select").value;
+
+  // Sélecteurs
+  const posSelect    = document.getElementById(isAlbum ? "album-position-filter-select" : "position-filter-select");
+  const clubSelect   = document.getElementById(isAlbum ? "album-club-filter-select" : "club-filter-select");
+  const posteSelect  = document.getElementById(isAlbum ? "album-poste-filter-select" : "poste-filter-select");
+
+  // Tout masquer par défaut
+  posSelect.classList.add("hidden");
+  clubSelect.classList.add("hidden");
+  posteSelect.classList.add("hidden");
+
+  if (sortMode === "position") {
+    // Filtre poste unique (mode poste)
+    const allPositions = new Set();
+    const pool = isAlbum ? PLAYERS : PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
+    pool.forEach(p => (p.positions||[]).forEach(pos => allPositions.add(pos)));
+    const sorted = Array.from(allPositions).sort((a,b) => {
+      const ia = POSITION_ORDER.indexOf(a), ib = POSITION_ORDER.indexOf(b);
+      return (ia===-1?99:ia) - (ib===-1?99:ib);
+    });
+    posSelect.innerHTML = `<option value="all">Tous les postes</option>` +
+      sorted.map(p => `<option value="${p}">${p}</option>`).join("");
+    posSelect.classList.remove("hidden");
+
+  } else if (sortMode === "club") {
+    // Filtre club + filtre poste secondaire
+    const pool = isAlbum ? PLAYERS : PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
+    const clubs = [...new Set(pool.map(p => p.team))].sort((a,b) =>
+      (TEAMS[a]?.name||a).localeCompare(TEAMS[b]?.name||b));
+    clubSelect.innerHTML = `<option value="all">Tous les clubs</option>` +
+      clubs.map(t => `<option value="${t}">${TEAMS[t]?.name||t}</option>`).join("");
+    clubSelect.classList.remove("hidden");
+    // Filtre poste visible quand un club est sélectionné
+    if (clubSelect.value !== "all") {
+      updatePosteFilterForClub(tab);
+    }
+  }
+}
+
+function updatePosteFilterForClub(tab) {
+  const isAlbum = tab === "album";
+  const clubSelect  = document.getElementById(isAlbum ? "album-club-filter-select" : "club-filter-select");
+  const posteSelect = document.getElementById(isAlbum ? "album-poste-filter-select" : "poste-filter-select");
+  const clubVal = clubSelect.value;
+
+  if (clubVal === "all") {
+    posteSelect.classList.add("hidden");
+    return;
+  }
+
+  // Joueurs du club sélectionné
+  const pool = isAlbum ? PLAYERS : PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
+  const postes = new Set();
+  pool.filter(p => p.team === clubVal).forEach(p => (p.positions||[]).forEach(pos => postes.add(pos)));
+  const sorted = Array.from(postes).sort((a,b) => {
+    const ia = POSITION_ORDER.indexOf(a), ib = POSITION_ORDER.indexOf(b);
+    return (ia===-1?99:ia) - (ib===-1?99:ib);
+  });
+  posteSelect.innerHTML = `<option value="all">Tous les postes</option>` +
+    sorted.map(p => `<option value="${p}">${p}</option>`).join("");
+  posteSelect.classList.remove("hidden");
 }
 
 // Affiche/masque et alimente le filtre secondaire par poste (commun aux deux onglets)
@@ -363,9 +470,13 @@ function renderPacks() {
   const dailyAvailable = isDailyAvailable();
 
   PACKS.forEach(pack => {
-    const div = document.createElement("div");
     const isXV = pack.id === "xv_demarrage";
     const isDaily = pack.id === "coup_envoi";
+
+    // Masquer le pack XV Démarrage s'il a déjà été utilisé (hors DEV_MODE)
+    if (isXV && xvUsed) return;
+
+    const div = document.createElement("div");
 
     let cardClass = "pack-card";
     if (isXV) cardClass += " pack-card-xv";
@@ -723,8 +834,11 @@ function getEntry(key) {
 function addCardToCollection(card, locked = false) {
   const key = getCardKey(card);
   const entry = getEntry(key);
+  const isNew = entry.count === 0;
   entry.count += 1;
   if (locked) entry.lockedCount = (entry.lockedCount || 0) + 1;
+  // Stocker la date de première acquisition
+  if (isNew) entry.obtainedAt = Date.now();
   collection[key] = entry;
 }
 
@@ -751,6 +865,15 @@ function renderCollection() {
     const posFilter = document.getElementById("position-filter-select")?.value || "all";
     if (posFilter !== "all") {
       ownedPlayers = ownedPlayers.filter(p => (p.positions || []).includes(posFilter));
+    }
+  } else if (sortMode === "club") {
+    const clubFilter = document.getElementById("club-filter-select")?.value || "all";
+    if (clubFilter !== "all") {
+      ownedPlayers = ownedPlayers.filter(p => p.team === clubFilter);
+    }
+    const posteFilter = document.getElementById("poste-filter-select")?.value || "all";
+    if (posteFilter !== "all") {
+      ownedPlayers = ownedPlayers.filter(p => (p.positions||[]).includes(posteFilter));
     }
   }
 
@@ -783,8 +906,20 @@ function renderAlbum() {
   if (sortMode === "position") {
     const posFilter = document.getElementById("album-position-filter-select")?.value || "all";
     if (posFilter !== "all") {
-      allPlayers = allPlayers.filter(p => (p.positions || []).includes(posFilter));
+      allPlayers = allPlayers.filter(p => (p.positions||[]).includes(posFilter));
     }
+  } else if (sortMode === "club") {
+    const clubFilter = document.getElementById("album-club-filter-select")?.value || "all";
+    if (clubFilter !== "all") {
+      allPlayers = allPlayers.filter(p => p.team === clubFilter);
+    }
+    const posteFilter = document.getElementById("album-poste-filter-select")?.value || "all";
+    if (posteFilter !== "all") {
+      allPlayers = allPlayers.filter(p => (p.positions||[]).includes(posteFilter));
+    }
+  } else if (sortMode === "recent") {
+    // En mode récent : montrer uniquement les cartes possédées, les plus récentes en premier
+    allPlayers = allPlayers.filter(p => getEntry(getCardKey(p)).count > 0);
   }
 
   sortPlayers(allPlayers, sortMode, "album");
@@ -852,8 +987,17 @@ function sellCard(key, quantity) {
 // ---------------------------------------------------------
 // TRI DE LA COLLECTION
 // ---------------------------------------------------------
-function sortPlayers(players, mode) {
+function sortPlayers(players, mode, tab = "collection") {
   const rarityOrder = ["legendaire", "international", "epique", "rare", "commune"];
+
+  // Tri secondaire par poste (pour Album et Mon Équipe, sauf mode alpha)
+  const applyPosteSecondary = (tab === "album" || tab === "equipe") && mode !== "alpha" && mode !== "position";
+
+  const posteRank = p => {
+    const pos = (p.positions || [])[0] || "";
+    const i = POSITION_ORDER.indexOf(pos);
+    return i === -1 ? 99 : i;
+  };
 
   switch (mode) {
     case "alpha":
@@ -862,28 +1006,42 @@ function sortPlayers(players, mode) {
 
     case "club":
       players.sort((a, b) => {
-        const teamA = TEAMS[a.team].name;
-        const teamB = TEAMS[b.team].name;
-        return teamA.localeCompare(teamB) || a.name.localeCompare(b.name);
+        const teamA = TEAMS[a.team]?.name || a.team;
+        const teamB = TEAMS[b.team]?.name || b.team;
+        return teamA.localeCompare(teamB) ||
+          (applyPosteSecondary ? posteRank(a) - posteRank(b) : 0) ||
+          a.name.localeCompare(b.name);
       });
       break;
 
     case "position":
       players.sort((a, b) =>
-        a.positions[0].localeCompare(b.positions[0]) || a.name.localeCompare(b.name)
+        posteRank(a) - posteRank(b) || a.name.localeCompare(b.name)
       );
       break;
 
     case "nationality":
       players.sort((a, b) =>
-        (a.nat || "").localeCompare(b.nat || "") || a.name.localeCompare(b.name)
+        (a.nat || "").localeCompare(b.nat || "") ||
+        (applyPosteSecondary ? posteRank(a) - posteRank(b) : 0) ||
+        a.name.localeCompare(b.name)
       );
+      break;
+
+    case "recent":
+      players.sort((a, b) => {
+        const entryA = getEntry(getCardKey(a));
+        const entryB = getEntry(getCardKey(b));
+        return (entryB.obtainedAt || 0) - (entryA.obtainedAt || 0) ||
+          (applyPosteSecondary ? posteRank(a) - posteRank(b) : 0);
+      });
       break;
 
     case "rarity":
     default:
       players.sort((a, b) =>
         rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity) ||
+        (applyPosteSecondary ? posteRank(a) - posteRank(b) : 0) ||
         a.name.localeCompare(b.name)
       );
       break;
@@ -1462,7 +1620,12 @@ async function renderAdmin() {
         <div class="admin-stat"><span>RUGBIZ en circulation</span><strong>${totalCoins}</strong></div>
         <div class="admin-stat"><span>Cartes obtenues</span><strong>${totalCards}</strong></div>
         <div class="admin-stat"><span>Joueurs en base</span><strong>${PLAYERS.length}</strong></div>
-        <div class="admin-stat"><span>DEV_MODE</span><strong style="color:${DEV_MODE?"#05DF72":"#ff6b6b"}">${DEV_MODE?"ON":"OFF"}</strong></div>
+        <div class="admin-stat"><span>DEV_MODE</span>
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <strong id="devmode-label" style="color:${DEV_MODE?"#05DF72":"#ff6b6b"}">${DEV_MODE?"ON":"OFF"}</strong>
+            <button id="devmode-toggle-btn" class="admin-btn" style="padding:0.25rem 0.7rem;font-size:0.75rem">${DEV_MODE?"Désactiver":"Activer"}</button>
+          </div>
+        </div>
       </div>
 
       <div class="admin-card">
@@ -1508,16 +1671,20 @@ async function renderAdmin() {
         </div>
         <div id="admin-form-add" class="admin-db-form">
           <div class="admin-row">
-            <input type="text" id="new-player-name" class="admin-input" placeholder="Nom complet">
+            <input type="text" id="new-player-firstname" class="admin-input" placeholder="Prénom">
+            <input type="text" id="new-player-lastname" class="admin-input" placeholder="Nom">
+          </div>
+          <div class="admin-row">
             <select id="new-player-team" class="admin-select">
               ${Object.entries(TEAMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("")}
             </select>
-          </div>
-          <div class="admin-row">
-            <input type="text" id="new-player-positions" class="admin-input" placeholder="Postes (séparés par |)">
             <select id="new-player-rarity" class="admin-select">
               ${Object.entries(RARITIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}
             </select>
+          </div>
+          <input type="text" id="new-player-positions" class="admin-input" placeholder="Poste(s) — sépare par | (ex: Pilier|Talonneur)">
+          <div id="new-player-clubs-row" class="hidden">
+            <input type="text" id="new-player-clubs" class="admin-input" placeholder="Club(s) de carrière — sépare par | (ex: toulouse|toulon)">
           </div>
           <div class="admin-row">
             <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
@@ -1660,6 +1827,15 @@ function bindAdminEvents() {
     } catch(e) { st.textContent = "❌ " + e.message; }
   };
 
+  // Toggle DEV_MODE
+  document.getElementById("devmode-toggle-btn").onclick = () => {
+    DEV_MODE = !DEV_MODE;
+    document.getElementById("devmode-label").textContent = DEV_MODE ? "ON" : "OFF";
+    document.getElementById("devmode-label").style.color = DEV_MODE ? "#05DF72" : "#ff6b6b";
+    document.getElementById("devmode-toggle-btn").textContent = DEV_MODE ? "Désactiver" : "Activer";
+    if (window._updateCoinsBtnVisibility) window._updateCoinsBtnVisibility();
+  };
+
   // Tabs add/remove
   document.getElementById("admin-tab-add").onclick = () => {
     document.getElementById("admin-tab-add").classList.add("active");
@@ -1674,20 +1850,41 @@ function bindAdminEvents() {
     document.getElementById("admin-form-add").classList.add("hidden");
   };
 
-  // Ajouter joueur
+  // Afficher champ clubs si rareté = legendaire
+  document.getElementById("new-player-rarity").onchange = (e) => {
+    const clubsRow = document.getElementById("new-player-clubs-row");
+    if (clubsRow) clubsRow.classList.toggle("hidden", e.target.value !== "legendaire");
+  };
+
+  // Ajouter joueur (prénom + nom + clubs)
   document.getElementById("admin-add-player-btn").onclick = () => {
-    const name = document.getElementById("new-player-name").value.trim();
+    const firstname = document.getElementById("new-player-firstname").value.trim();
+    const lastname  = document.getElementById("new-player-lastname").value.trim();
+    const name = [firstname, lastname].filter(Boolean).join(" ");
     const team = document.getElementById("new-player-team").value;
-    const positions = document.getElementById("new-player-positions").value.split("|").map(p=>p.trim()).filter(Boolean);
     const rarity = document.getElementById("new-player-rarity").value;
+    const positions = document.getElementById("new-player-positions").value.split("|").map(p=>p.trim()).filter(Boolean);
     const nat = document.getElementById("new-player-nat").value.trim() || "FRA";
+    const clubsInput = document.getElementById("new-player-clubs");
+    const clubs = (rarity === "legendaire" && clubsInput?.value)
+      ? clubsInput.value.split("|").map(c=>c.trim()).filter(Boolean)
+      : undefined;
     const st = document.getElementById("admin-add-player-status");
-    if (!name) { st.textContent = "⚠️ Entre un nom."; return; }
+
+    if (!name) { st.textContent = "⚠️ Entre un prénom ou un nom."; return; }
     if (!positions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
-    PLAYERS.push({ name, team, positions, rarity, nat });
-    st.textContent = `✓ ${name} ajouté en mémoire.`;
-    document.getElementById("new-player-name").value = "";
+
+    const newPlayer = { name, team, positions, rarity, nat };
+    if (clubs?.length) newPlayer.clubs = clubs;
+    PLAYERS.push(newPlayer);
+    st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}) ajouté en mémoire.`;
+
+    // Reset form
+    document.getElementById("new-player-firstname").value = "";
+    document.getElementById("new-player-lastname").value = "";
     document.getElementById("new-player-positions").value = "";
+    document.getElementById("new-player-nat").value = "";
+    if (clubsInput) clubsInput.value = "";
   };
 
   // Recherche suppression
@@ -1711,3 +1908,68 @@ function bindAdminEvents() {
 // LANCEMENT
 // ---------------------------------------------------------
 setupAuth();
+setupLegalModals();
+
+function setupLegalModals() {
+  // Mentions légales
+  document.getElementById("footer-mentions-btn").addEventListener("click", () => {
+    document.getElementById("mentions-modal").classList.remove("hidden");
+  });
+  document.getElementById("close-mentions-btn").addEventListener("click", () => {
+    document.getElementById("mentions-modal").classList.add("hidden");
+  });
+
+  // Confidentialité
+  document.getElementById("footer-privacy-btn").addEventListener("click", () => {
+    document.getElementById("privacy-modal").classList.remove("hidden");
+  });
+  document.getElementById("close-privacy-btn").addEventListener("click", () => {
+    document.getElementById("privacy-modal").classList.add("hidden");
+  });
+
+  // Contact
+  document.getElementById("footer-contact-btn").addEventListener("click", () => {
+    // Pré-remplir le pseudo si connecté
+    if (currentUser) {
+      const pseudo = currentUser.displayName || currentUser.email.split("@")[0];
+      document.getElementById("contactName").value = pseudo;
+      document.getElementById("contactEmail").value = currentUser.email;
+    }
+    document.getElementById("contactSuccess").classList.add("hidden");
+    document.getElementById("contact-modal").classList.remove("hidden");
+  });
+  document.getElementById("close-contact-btn").addEventListener("click", () => {
+    document.getElementById("contact-modal").classList.add("hidden");
+  });
+
+  // Soumission du formulaire contact via FormSubmit (AJAX)
+  document.getElementById("contactForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector(".contact-submit-btn");
+    btn.textContent = "Envoi en cours...";
+    btn.disabled = true;
+
+    try {
+      await fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { "Accept": "application/json" }
+      });
+      form.reset();
+      document.getElementById("contactSuccess").classList.remove("hidden");
+    } catch(err) {
+      document.getElementById("contactSuccess").textContent = "❌ Erreur d'envoi. Réessaie plus tard.";
+      document.getElementById("contactSuccess").classList.remove("hidden");
+    }
+    btn.textContent = "Envoyer";
+    btn.disabled = false;
+  });
+
+  // Fermer en cliquant sur le fond
+  ["mentions-modal", "privacy-modal", "contact-modal"].forEach(id => {
+    document.getElementById(id).addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden");
+    });
+  });
+}
