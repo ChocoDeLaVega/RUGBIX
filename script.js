@@ -2,11 +2,12 @@
 // LOGIQUE DU JEU - RUGBIX
 // =========================================================
 
-const STORAGE_KEY_XV_USED = "rugby_xv_used_v1";
-const STORAGE_KEY_DAILY_LAST = "rugby_daily_last_v1";
+// xvUsed stocké en mémoire (chargé depuis Firestore au login)
+let xvUsedInMemory = false;
 
-// ⚙️ DEV_MODE — toggleable depuis le panneau admin
-let DEV_MODE = false;
+// dailyLast est stocké en mémoire (chargé depuis Firestore au login)
+// localStorage n'est PAS utilisé pour éviter le contournement par refresh
+let dailyLastUsed = null; // format "YYYY-MM-DD"
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -14,12 +15,19 @@ function getTodayStr() {
 
 function isDailyAvailable() {
   if (DEV_MODE) return true;
-  const last = localStorage.getItem(STORAGE_KEY_DAILY_LAST);
-  return last !== getTodayStr();
+  return dailyLastUsed !== getTodayStr();
 }
 
 function markDailyUsed() {
-  if (!DEV_MODE) localStorage.setItem(STORAGE_KEY_DAILY_LAST, getTodayStr());
+  if (!DEV_MODE) {
+    dailyLastUsed = getTodayStr();
+    // Sauvegarde immédiate dans Firestore (pas de debounce pour cette valeur critique)
+    if (currentUser) {
+      db.collection("users").doc(currentUser.uid).update({
+        dailyLast: dailyLastUsed
+      }).catch(e => console.error("Erreur save dailyLast:", e));
+    }
+  }
 }
 
 let collection = {};
@@ -52,6 +60,7 @@ firebase.auth().onAuthStateChanged(async user => {
     }
 
     await loadProgressFromFirebase();
+    await loadPlayersOverrides(); // Charger les ajouts/suppressions de joueurs admin
     // Toujours mettre à jour le pseudo dans Firestore
     try {
       await db.collection("users").doc(currentUser.uid).set(
@@ -77,8 +86,8 @@ async function loadProgressFromFirebase() {
       const data = doc.data();
       collection = data.collection || {};
       coins = data.coins !== undefined ? data.coins : 200;
-      if (data.xvUsed) localStorage.setItem(STORAGE_KEY_XV_USED, "true");
-      if (data.dailyLast) localStorage.setItem(STORAGE_KEY_DAILY_LAST, data.dailyLast);
+      if (data.xvUsed) xvUsedInMemory = true;
+      if (data.dailyLast) dailyLastUsed = data.dailyLast;
       // Restaurer l'équipe : on stocke { slotId: "name|team" } et on retrouve le joueur
       if (data.equipe) {
         equipe = {};
@@ -116,8 +125,8 @@ function saveData() {
         collection,
         coins,
         equipe: equipeSerialized,
-        xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
-        dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
+        xvUsed: xvUsedInMemory,
+        dailyLast: dailyLastUsed || null,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch(e) {
@@ -137,8 +146,8 @@ async function saveToFirebase() {
       collection,
       coins,
       equipe: equipeSerialized,
-      xvUsed: localStorage.getItem(STORAGE_KEY_XV_USED) === "true",
-      dailyLast: localStorage.getItem(STORAGE_KEY_DAILY_LAST) || null,
+      xvUsed: xvUsedInMemory,
+      dailyLast: dailyLastUsed || null,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
     });
   } catch(e) {
@@ -149,6 +158,56 @@ async function saveToFirebase() {
 // ---------------------------------------------------------
 // AUTHENTIFICATION
 // ---------------------------------------------------------
+
+// Charger et appliquer les modifications de joueurs faites par l'admin
+async function loadPlayersOverrides() {
+  try {
+    const doc = await db.collection("playersOverrides").doc("data").get();
+    if (!doc.exists) return;
+    const data = doc.data();
+
+    // Appliquer les suppressions
+    if (data.removed && data.removed.length > 0) {
+      const removedSet = new Set(data.removed);
+      for (let i = PLAYERS.length - 1; i >= 0; i--) {
+        if (removedSet.has(getCardKey(PLAYERS[i]))) {
+          PLAYERS.splice(i, 1);
+        }
+      }
+    }
+
+    // Appliquer les ajouts (en évitant les doublons)
+    if (data.added && data.added.length > 0) {
+      const existingKeys = new Set(PLAYERS.map(p => getCardKey(p)));
+      data.added.forEach(player => {
+        if (!existingKeys.has(getCardKey(player))) {
+          PLAYERS.push(player);
+        }
+      });
+    }
+
+    console.log(`✓ Overrides chargés : ${data.added?.length||0} ajouts, ${data.removed?.length||0} suppressions`);
+  } catch(e) {
+    console.warn("Overrides non chargés:", e.message);
+  }
+}
+
+// Sauvegarder les overrides dans Firestore (admin seulement)
+async function savePlayersOverrides(addedPlayers, removedKeys) {
+  try {
+    await db.collection("playersOverrides").doc("data").set({
+      added: addedPlayers,
+      removed: removedKeys,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: "ChocoDeLaVega"
+    });
+    console.log("✓ Overrides sauvegardés");
+  } catch(e) {
+    console.error("Erreur sauvegarde overrides:", e);
+    throw e;
+  }
+}
+
 function setupAuth() {
   document.getElementById("tab-login-btn").addEventListener("click", () => {
     document.getElementById("tab-login-btn").classList.add("active");
@@ -567,7 +626,7 @@ function renderPacks() {
   const container = document.getElementById("packs-container");
   container.innerHTML = "";
 
-  const xvUsed = !DEV_MODE && localStorage.getItem(STORAGE_KEY_XV_USED) === "true";
+  const xvUsed = !DEV_MODE && xvUsedInMemory;
   const dailyAvailable = isDailyAvailable();
 
   PACKS.forEach(pack => {
@@ -689,10 +748,16 @@ function openPack(packId, cost) {
 
   // Pack XV Démarrage : logique spéciale
   if (pack.id === "xv_demarrage") {
-    if (!DEV_MODE && localStorage.getItem(STORAGE_KEY_XV_USED) === "true") return;
+    if (!DEV_MODE && xvUsedInMemory) return;
     const drawnCards = drawXVDemarrage();
     drawnCards.forEach(card => addCardToCollection(card, true));
-    if (!DEV_MODE) localStorage.setItem(STORAGE_KEY_XV_USED, "true");
+    if (!DEV_MODE) {
+      xvUsedInMemory = true;
+      if (currentUser) {
+        db.collection("users").doc(currentUser.uid).update({ xvUsed: true })
+          .catch(e => console.error("Erreur save xvUsed:", e));
+      }
+    }
     saveData();
     updateCoinsDisplay();
     showOpeningModal(pack, drawnCards);
@@ -969,16 +1034,19 @@ function renderCollection() {
     }
   } else if (sortMode === "club") {
     const clubFilter = document.getElementById("club-filter-select")?.value || "all";
-    if (clubFilter !== "all") {
-      ownedPlayers = ownedPlayers.filter(p => p.team === clubFilter);
-    }
+    if (clubFilter !== "all") ownedPlayers = ownedPlayers.filter(p => p.team === clubFilter);
     const posteFilter = document.getElementById("poste-filter-select")?.value || "all";
-    if (posteFilter !== "all") {
-      ownedPlayers = ownedPlayers.filter(p => (p.positions||[]).includes(posteFilter));
+    if (posteFilter !== "all") ownedPlayers = ownedPlayers.filter(p => (p.positions||[]).includes(posteFilter));
+  } else if (sortMode === "recent") {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    ownedPlayers = ownedPlayers.filter(p => (getEntry(getCardKey(p)).obtainedAt||0) >= todayStart.getTime());
+    if (ownedPlayers.length === 0) {
+      container.innerHTML = `<div class="empty-card">Aucune carte obtenue aujourd'hui.<br>Ouvre un pack pour en avoir !</div>`;
+      return;
     }
   }
 
-  sortPlayers(ownedPlayers, sortMode);
+  sortPlayers(ownedPlayers, sortMode, "collection");
 
   ownedPlayers.forEach(player => {
     const entry = getEntry(getCardKey(player));
@@ -1019,8 +1087,12 @@ function renderAlbum() {
       allPlayers = allPlayers.filter(p => (p.positions||[]).includes(posteFilter));
     }
   } else if (sortMode === "recent") {
-    // En mode récent : montrer uniquement les cartes possédées, les plus récentes en premier
-    allPlayers = allPlayers.filter(p => getEntry(getCardKey(p)).count > 0);
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    allPlayers = allPlayers.filter(p => (getEntry(getCardKey(p)).obtainedAt||0) >= todayStart.getTime());
+    if (allPlayers.length === 0) {
+      container.innerHTML = `<div class="empty-card">Aucune carte obtenue aujourd'hui.<br>Ouvre un pack pour en avoir !</div>`;
+      return;
+    }
   }
 
   sortPlayers(allPlayers, sortMode, "album");
@@ -1057,28 +1129,35 @@ function buildAlbumCard(player, owned) {
 }
 
 // ---------------------------------------------------------
-// VENTE DE CARTES EN DOUBLON (quantité ajustable)
+// VENTE DE CARTES (locked = 0 RUGBIZ, unlocked = valeur normale)
 // ---------------------------------------------------------
 function sellCard(key, quantity) {
   const entry = getEntry(key);
   if (entry.count <= 0) return;
 
-  // Nb vendables = total - exemplaires verrouillés (on garde au moins les locked)
-  const sellable = Math.max(0, entry.count - (entry.lockedCount || 0));
-  if (sellable <= 0) return;
-
-  const qty = Math.max(1, Math.min(quantity, sellable));
-
+  const qty = Math.max(1, Math.min(quantity, entry.count));
   const player = PLAYERS.find(p => getCardKey(p) === key);
   if (!player) return;
 
+  // Cartes vendables normalement (non verrouillées)
+  const unlocked = Math.max(0, entry.count - (entry.lockedCount || 0));
+  const unlockedSold = Math.min(qty, unlocked);
+  const lockedSold = qty - unlockedSold;
+
+  // Déduire du lockedCount si on vend des cartes verrouillées
   entry.count -= qty;
+  if (lockedSold > 0) {
+    entry.lockedCount = Math.max(0, (entry.lockedCount || 0) - lockedSold);
+  }
+
   if (entry.count <= 0) {
     delete collection[key];
   } else {
     collection[key] = entry;
   }
-  coins += RARITIES[player.rarity].sellValue * qty;
+
+  // Cartes verrouillées = 0 RUGBIZ, non verrouillées = valeur normale
+  coins += RARITIES[player.rarity].sellValue * unlockedSold;
 
   saveData();
   updateCoinsDisplay();
@@ -1091,8 +1170,12 @@ function sellCard(key, quantity) {
 function sortPlayers(players, mode, tab = "collection") {
   const rarityOrder = ["legendaire", "international", "epique", "rare", "commune"];
 
-  // Tri secondaire par poste (pour Album et Mon Équipe, sauf mode alpha)
-  const applyPosteSecondary = (tab === "album" || tab === "equipe") && mode !== "alpha" && mode !== "position";
+  // Tri secondaire par poste :
+  // - Album et Équipe : tous les modes sauf alpha
+  // - Mon Club (collection) : uniquement le mode rareté
+  const applyPosteSecondary = (tab === "album" || tab === "equipe")
+    ? (mode !== "alpha" && mode !== "position")
+    : (tab === "collection" && mode === "rarity");
 
   const posteRank = p => {
     const pos = (p.positions || [])[0] || "";
@@ -1296,8 +1379,7 @@ function setupCardDetailModal() {
 
   document.getElementById("qty-plus").addEventListener("click", () => {
     const entry = getEntry(currentDetailKey);
-    const maxSellable = Math.max(0, entry.count - (entry.lockedCount || 0));
-    if (currentDetailQty < maxSellable) {
+    if (currentDetailQty < entry.count) {
       currentDetailQty++;
       updateCardDetailControls();
     }
@@ -1306,10 +1388,9 @@ function setupCardDetailModal() {
   document.getElementById("confirm-sell-btn").addEventListener("click", () => {
     if (!currentDetailKey) return;
     const entry = getEntry(currentDetailKey);
-    const sellable = entry.count - (entry.lockedCount || 0);
-    if (sellable <= 0) return;
+    if (entry.count <= 0) return;
 
-    if (sellable === 1) {
+    if (entry.count === 1) {
       showSellConfirm();
     } else {
       sellCard(currentDetailKey, currentDetailQty);
@@ -1339,36 +1420,47 @@ function openCardDetail(player, count) {
 
 function updateCardDetailControls() {
   const entry = getEntry(currentDetailKey);
-  const maxSellable = Math.max(0, entry.count - (entry.lockedCount || 0));
+  const lockedCount = entry.lockedCount || 0;
+  const maxSellable = Math.max(0, entry.count - lockedCount);
+  const totalSellable = entry.count; // locked + unlocked, toutes vendables (locked = 0 RUGBIZ)
   const player = PLAYERS.find(p => getCardKey(p) === currentDetailKey);
   const sellValue = player ? RARITIES[player.rarity].sellValue : 0;
 
-  document.getElementById("qty-value").textContent = currentDetailQty;
-
   const sellControls = document.querySelector(".sell-controls");
   const confirmBtn = document.getElementById("confirm-sell-btn");
+  const qtyMinus = document.getElementById("qty-minus");
+  const qtyPlus = document.getElementById("qty-plus");
+  const qtyVal = document.getElementById("qty-value");
 
-  if (maxSellable <= 0 && (entry.lockedCount || 0) > 0) {
-    // Cartes verrouillées uniquement
-    sellControls.classList.remove("hidden");
-    document.getElementById("qty-value").textContent = "🔒";
-    document.getElementById("qty-minus").disabled = true;
-    document.getElementById("qty-plus").disabled = true;
-    confirmBtn.textContent = "Non revendable (XV Démarrage)";
-    confirmBtn.disabled = true;
-  } else if (maxSellable <= 0) {
-    sellControls.classList.remove("hidden");
-    document.getElementById("qty-value").textContent = "—";
-    document.getElementById("qty-minus").disabled = true;
-    document.getElementById("qty-plus").disabled = true;
+  sellControls.classList.remove("hidden");
+
+  if (totalSellable <= 0) {
+    // Aucune carte
+    qtyVal.textContent = "—";
+    qtyMinus.disabled = true;
+    qtyPlus.disabled = true;
     confirmBtn.textContent = "Aucune carte à vendre";
     confirmBtn.disabled = true;
+    return;
+  }
+
+  // Des cartes disponibles (verrouillées ou non)
+  qtyVal.textContent = currentDetailQty;
+  qtyMinus.disabled = currentDetailQty <= 1;
+  qtyPlus.disabled = currentDetailQty >= totalSellable;
+  confirmBtn.disabled = false;
+
+  // Calculer la valeur : les cartes non-verrouillées valent sellValue, les verrouillées 0
+  // On vend d'abord les non-verrouillées, puis les verrouillées
+  const unlockedToSell = Math.min(currentDetailQty, maxSellable);
+  const lockedToSell = currentDetailQty - unlockedToSell;
+  const totalValue = unlockedToSell * sellValue; // locked = 0 RUGBIZ
+
+  if (lockedCount > 0 && maxSellable <= 0) {
+    // Toutes les cartes sont verrouillées
+    confirmBtn.innerHTML = `Vendre ${currentDetailQty} 🔒 (+0 <span class="rubiz-symbol">R</span>)`;
   } else {
-    sellControls.classList.remove("hidden");
-    confirmBtn.disabled = false;
-    confirmBtn.innerHTML = `Vendre ${currentDetailQty} (+${sellValue * currentDetailQty} <span class="rubiz-symbol">R</span>)`;
-    document.getElementById("qty-minus").disabled = currentDetailQty <= 1;
-    document.getElementById("qty-plus").disabled = currentDetailQty >= maxSellable;
+    confirmBtn.innerHTML = `Vendre ${currentDetailQty} (+${totalValue} <span class="rubiz-symbol">R</span>)`;
   }
 }
 
@@ -1697,7 +1789,7 @@ async function logAdminAction(type, details) {
       by: "ChocoDeLaVega"
     });
   } catch(e) {
-    console.error("Erreur log admin:", e);
+    console.warn("Log admin non enregistré (permissions):", e.message);
   }
 }
 let adminUsers = [];
@@ -1936,18 +2028,12 @@ function bindAdminEvents() {
       const doc = await db.collection("users").doc(uid).get();
       const newCoins = (doc.data().coins||0) + amount;
       await db.collection("users").doc(uid).update({ coins: newCoins });
-      // Notifier le joueur via gift
-      await db.collection("users").doc(uid).collection("gifts").add({
-        type: "coins",
-        amount,
-        seen: false,
-        sentAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
       if (uid === currentUser.uid) { coins = newCoins; updateCoinsDisplay(); }
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
-      await logAdminAction("rugbiz", `+${amount} RUGBIZ \u2192 ${pseudo}`);
       st.textContent = `✓ +${amount} RUGBIZ → ${pseudo}`;
       setTimeout(() => renderAdmin(), 2000);
+      try { await db.collection("users").doc(uid).collection("gifts").add({ type: "coins", amount, seen: false, sentAt: firebase.firestore.FieldValue.serverTimestamp() }); } catch(_){}
+      try { await logAdminAction("rugbiz", `+${amount} RUGBIZ → ${pseudo}`); } catch(_){}
     } catch(e) { st.textContent = "❌ " + e.message; }
   };
 
@@ -1975,17 +2061,10 @@ function bindAdminEvents() {
         userCollection[key] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
       });
       await db.collection("users").doc(uid).update({ collection: userCollection });
-      // Notifier le joueur
-      await db.collection("users").doc(uid).collection("gifts").add({
-        type: "pack",
-        packId,
-        cards: cardKeys,
-        seen: false,
-        sentAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
-      await logAdminAction("pack", `${pack.name} (${drawn.length} cartes) \u2192 ${pseudo}`);
       st.textContent = `✓ ${pack.name} (${drawn.length} cartes) → ${pseudo}`;
+      try { await db.collection("users").doc(uid).collection("gifts").add({ type: "pack", packId, cards: cardKeys, seen: false, sentAt: firebase.firestore.FieldValue.serverTimestamp() }); } catch(_){}
+      try { await logAdminAction("pack", `${pack.name} (${drawn.length} cartes) → ${pseudo}`); } catch(_){}
     } catch(e) { st.textContent = "❌ " + e.message; }
   };
 
@@ -2006,15 +2085,11 @@ function bindAdminEvents() {
       const ex = userCollection[cardKey] || { count:0, lockedCount:0 };
       userCollection[cardKey] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
       await db.collection("users").doc(uid).update({ collection: userCollection });
-      // Notifier le joueur
-      await db.collection("users").doc(uid).collection("gifts").add({
-        type: "card",
-        cardKey,
-        seen: false,
-        sentAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
       const player = PLAYERS.find(p=>getCardKey(p)===cardKey);
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      st.textContent = `✓ ${player?.name} → ${pseudo}`;
+      try { await db.collection("users").doc(uid).collection("gifts").add({ type: "card", cardKey, seen: false, sentAt: firebase.firestore.FieldValue.serverTimestamp() }); } catch(_){}
+      try { await logAdminAction("carte", `${player?.name} → ${pseudo}`); } catch(_){}
       await logAdminAction("carte", `${player?.name} \u2192 ${pseudo}`);
       st.textContent = `✓ ${player?.name} → ${pseudo}`;
     } catch(e) { st.textContent = "❌ " + e.message; }
@@ -2069,9 +2144,32 @@ function bindAdminEvents() {
 
     const newPlayer = { name, team, positions, rarity, nat };
     if (clubs?.length) newPlayer.clubs = clubs;
-    PLAYERS.push(newPlayer);
-    st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}) ajouté en mémoire.`;
-    await logAdminAction("joueur_ajout\u00e9", `${name} — ${TEAMS[team]?.name||team} [${rarity}]`);
+
+    st.textContent = "Sauvegarde en cours...";
+    try {
+      // Charger les overrides existants
+      const doc = await db.collection("playersOverrides").doc("data").get();
+      const existing = doc.exists ? doc.data() : { added: [], removed: [] };
+      const added = existing.added || [];
+      const removed = existing.removed || [];
+
+      // Vérifier pas de doublon
+      const newKey = getCardKey(newPlayer);
+      if (added.some(p => getCardKey(p) === newKey)) {
+        st.textContent = "⚠️ Ce joueur existe déjà dans les ajouts.";
+        return;
+      }
+
+      added.push(newPlayer);
+      await savePlayersOverrides(added, removed);
+
+      // Appliquer localement
+      PLAYERS.push(newPlayer);
+      st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}) ajouté pour tous !`;
+      try { await logAdminAction("joueur_ajouté", `${name} — ${TEAMS[team]?.name||team} [${rarity}]`); } catch(_) {}
+    } catch(e) {
+      st.textContent = `❌ Erreur : ${e.message}`;
+    }
 
     // Reset form
     document.getElementById("new-player-firstname").value = "";
@@ -2089,13 +2187,33 @@ function bindAdminEvents() {
     const key = document.getElementById("remove-player-select").value;
     const st = document.getElementById("admin-remove-player-status");
     if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
-    const idx = PLAYERS.findIndex(p=>getCardKey(p)===key);
-    if (idx===-1) { st.textContent = "⚠️ Introuvable."; return; }
+    const idx = PLAYERS.findIndex(p => getCardKey(p) === key);
+    if (idx === -1) { st.textContent = "⚠️ Introuvable."; return; }
     const name = PLAYERS[idx].name;
-    PLAYERS.splice(idx, 1);
-    st.textContent = `✓ ${name} supprimé en mémoire.`;
-    await logAdminAction("joueur_supprim\u00e9", `${name}`);
-    refreshRemovePlayerList("");
+
+    st.textContent = "Sauvegarde en cours...";
+    try {
+      const doc = await db.collection("playersOverrides").doc("data").get();
+      const existing = doc.exists ? doc.data() : { added: [], removed: [] };
+      let added = existing.added || [];
+      const removed = existing.removed || [];
+
+      // Retirer des ajouts si c'était un joueur ajouté par l'admin
+      added = added.filter(p => getCardKey(p) !== key);
+
+      // Ajouter à la liste des suppressions (seulement si pas déjà dedans)
+      if (!removed.includes(key)) removed.push(key);
+
+      await savePlayersOverrides(added, removed);
+
+      // Appliquer localement
+      PLAYERS.splice(idx, 1);
+      st.textContent = `✓ ${name} supprimé pour tous !`;
+      try { await logAdminAction("joueur_supprimé", `${name}`); } catch(_) {}
+      refreshRemovePlayerList("");
+    } catch(e) {
+      st.textContent = `❌ Erreur : ${e.message}`;
+    }
   };
 }
 
