@@ -698,8 +698,14 @@ const LEGENDS = [
   { name: "François Trinh-Dhuc", team: "montpellier", clubs: ["montpellier","toulon"], positions: ["Demi d'ouverture"], rarity: "legendaire", nat: "FRA" },
   { name: "Conrad Smith", team: "pau", clubs: ["Pau"], positions: ["Centre"], rarity: "legendaire", nat: "NZL" },
   { name: "Guilhem Guirado", team: "perpignan", clubs: ["perpignan","montpellier","toulon"], positions: ["Talonneur"], rarity: "legendaire", nat: "FRA" },
-	
-	
+  { name: "Yannick Nyanga", team: "toulouse", clubs: ["toulouse","racing92"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "FRA" },
+  { name: "Aurélien Rougerie", team: "clermont", clubs: ["clermont"], positions: ["Ailier"], rarity: "legendaire", nat: "FRA" },
+  { name: "Juan Martin Hernandez", team: "stadefr", clubs: ["stadefr"], positions: ["Demi d'ouverture","Arrière"], rarity: "legendaire", nat: "ARG" },
+  { name: "Jerome Kaino", team: "toulouse", clubs: ["toulouse"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "NZL" },
+  { name: "Morgan Parra", team: "clermont", clubs: ["bourgoinjallieu", "clermont"], positions: ["Demi de mêlée"], rarity: "legendaire", nat: "FRA" },
+  { name: "Joe Rokocoko", team: "bayonne", clubs: ["bayonne","racing92"], positions: ["Ailier"], rarity: "legendaire", nat: "NZL" },
+  { name: "Scott Spedding", team: "clermont", clubs: ["bayonne","clermont"], positions: ["Arrière"], rarity: "legendaire", nat: "FRA" },
+  { name: "Dimitri Szarzewski", team: "stadefr", clubs: ["stadefr","racing92"], positions: ["Talonneur"], rarity: "legendaire", nat: "FRA" },
 	
 ];
 
