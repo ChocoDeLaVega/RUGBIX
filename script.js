@@ -6,7 +6,7 @@ const STORAGE_KEY_XV_USED = "rugby_xv_used_v1";
 const STORAGE_KEY_DAILY_LAST = "rugby_daily_last_v1";
 
 // ⚙️ DEV_MODE — toggleable depuis le panneau admin
-let DEV_MODE = true;
+let DEV_MODE = false;
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -1686,6 +1686,20 @@ function doCompoType() {
 // ---------------------------------------------------------
 // PANNEAU ADMIN (ChocoDeLaVega uniquement)
 // ---------------------------------------------------------
+
+// Enregistre une action admin dans Firestore
+async function logAdminAction(type, details) {
+  try {
+    await db.collection("adminLogs").add({
+      type,
+      details,
+      at: firebase.firestore.FieldValue.serverTimestamp(),
+      by: "ChocoDeLaVega"
+    });
+  } catch(e) {
+    console.error("Erreur log admin:", e);
+  }
+}
 let adminUsers = [];
 
 async function renderAdmin() {
@@ -1785,7 +1799,7 @@ async function renderAdmin() {
           </div>
           <input type="text" id="new-player-positions" class="admin-input" placeholder="Poste(s) — sépare par | (ex: Pilier|Talonneur)">
           <div id="new-player-clubs-row" class="hidden">
-            <input type="text" id="new-player-clubs" class="admin-input" placeholder="Club(s) de carrière — sépare par | (ex: toulouse|toulon)">
+            <input type="text" id="new-player-clubs" class="admin-input" placeholder="Club(s) de carrière — sépare par / (ex: toulouse/toulon)">
           </div>
           <div class="admin-row">
             <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
@@ -1800,6 +1814,13 @@ async function renderAdmin() {
           <button id="admin-remove-player-btn" class="admin-btn" style="background:#cc0000;color:#fff">Supprimer</button>
           <div id="admin-remove-player-status" class="admin-status"></div>
           <p class="admin-note">⚠️ Suppression en mémoire uniquement. Supprime aussi dans Google Sheets pour le rendre permanent.</p>
+        </div>
+      </div>
+
+      <div class="admin-card admin-card-full">
+        <h3>📋 Historique des actions</h3>
+        <div id="admin-history-list" class="admin-history-list">
+          <div class="admin-loading">⏳ Chargement de l'historique...</div>
         </div>
       </div>
 
@@ -1858,7 +1879,51 @@ function refreshRemovePlayerList(q) {
   ).join("");
 }
 
+async function loadAdminHistory() {
+  const el = document.getElementById("admin-history-list");
+  if (!el) return;
+
+  try {
+    const snap = await db.collection("adminLogs")
+      .orderBy("at", "desc")
+      .limit(50)
+      .get();
+
+    if (snap.empty) {
+      el.innerHTML = `<div class="admin-history-empty">Aucune action enregistrée.</div>`;
+      return;
+    }
+
+    const icons = {
+      "rugbiz":           "💰",
+      "pack":             "📦",
+      "carte":            "🃏",
+      "joueur_ajouté":    "➕",
+      "joueur_supprimé":  "🗑️"
+    };
+
+    el.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const date = d.at?.seconds
+        ? new Date(d.at.seconds * 1000).toLocaleString("fr-FR")
+        : "—";
+      const icon = icons[d.type] || "📋";
+      return `
+        <div class="admin-history-row">
+          <span class="admin-history-icon">${icon}</span>
+          <span class="admin-history-detail">${d.details}</span>
+          <span class="admin-history-date">${date}</span>
+        </div>`;
+    }).join("");
+  } catch(e) {
+    el.innerHTML = `<div class="admin-loading">❌ ${e.message}</div>`;
+  }
+}
+
 function bindAdminEvents() {
+  // Charger l'historique
+  loadAdminHistory();
+
   // Envoyer RUGBIZ
   document.getElementById("admin-send-coins-btn").onclick = async () => {
     const uid = document.getElementById("admin-send-coins-user").value;
@@ -1880,6 +1945,7 @@ function bindAdminEvents() {
       });
       if (uid === currentUser.uid) { coins = newCoins; updateCoinsDisplay(); }
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      await logAdminAction("rugbiz", `+${amount} RUGBIZ \u2192 ${pseudo}`);
       st.textContent = `✓ +${amount} RUGBIZ → ${pseudo}`;
       setTimeout(() => renderAdmin(), 2000);
     } catch(e) { st.textContent = "❌ " + e.message; }
@@ -1918,6 +1984,7 @@ function bindAdminEvents() {
         sentAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      await logAdminAction("pack", `${pack.name} (${drawn.length} cartes) \u2192 ${pseudo}`);
       st.textContent = `✓ ${pack.name} (${drawn.length} cartes) → ${pseudo}`;
     } catch(e) { st.textContent = "❌ " + e.message; }
   };
@@ -1948,6 +2015,7 @@ function bindAdminEvents() {
       });
       const player = PLAYERS.find(p=>getCardKey(p)===cardKey);
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
+      await logAdminAction("carte", `${player?.name} \u2192 ${pseudo}`);
       st.textContent = `✓ ${player?.name} → ${pseudo}`;
     } catch(e) { st.textContent = "❌ " + e.message; }
   };
@@ -1982,7 +2050,7 @@ function bindAdminEvents() {
   };
 
   // Ajouter joueur (prénom + nom + clubs)
-  document.getElementById("admin-add-player-btn").onclick = () => {
+  document.getElementById("admin-add-player-btn").onclick = async () => {
     const firstname = document.getElementById("new-player-firstname").value.trim();
     const lastname  = document.getElementById("new-player-lastname").value.trim();
     const name = [firstname, lastname].filter(Boolean).join(" ");
@@ -1992,7 +2060,7 @@ function bindAdminEvents() {
     const nat = document.getElementById("new-player-nat").value.trim() || "FRA";
     const clubsInput = document.getElementById("new-player-clubs");
     const clubs = (rarity === "legendaire" && clubsInput?.value)
-      ? clubsInput.value.split("|").map(c=>c.trim()).filter(Boolean)
+      ? clubsInput.value.split("/").map(c=>c.trim()).filter(Boolean)
       : undefined;
     const st = document.getElementById("admin-add-player-status");
 
@@ -2003,6 +2071,7 @@ function bindAdminEvents() {
     if (clubs?.length) newPlayer.clubs = clubs;
     PLAYERS.push(newPlayer);
     st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}) ajouté en mémoire.`;
+    await logAdminAction("joueur_ajout\u00e9", `${name} — ${TEAMS[team]?.name||team} [${rarity}]`);
 
     // Reset form
     document.getElementById("new-player-firstname").value = "";
@@ -2016,7 +2085,7 @@ function bindAdminEvents() {
   document.getElementById("remove-player-search").oninput = (e) => refreshRemovePlayerList(e.target.value);
 
   // Supprimer joueur
-  document.getElementById("admin-remove-player-btn").onclick = () => {
+  document.getElementById("admin-remove-player-btn").onclick = async () => {
     const key = document.getElementById("remove-player-select").value;
     const st = document.getElementById("admin-remove-player-status");
     if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
@@ -2025,6 +2094,7 @@ function bindAdminEvents() {
     const name = PLAYERS[idx].name;
     PLAYERS.splice(idx, 1);
     st.textContent = `✓ ${name} supprimé en mémoire.`;
+    await logAdminAction("joueur_supprim\u00e9", `${name}`);
     refreshRemovePlayerList("");
   };
 }

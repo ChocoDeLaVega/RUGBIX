@@ -24,6 +24,8 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// Session uniquement : déconnexion automatique à la fermeture de l'onglet/fenêtre
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 const db = firebase.firestore();
 </script>
 </head>
