@@ -571,8 +571,12 @@ html, body {
 /* Même style pour TOUS les selects de tri (Mon Club + Album) */
 #sort-select,
 #position-filter-select,
+#club-filter-select,
+#poste-filter-select,
 #album-sort-select,
-#album-position-filter-select {
+#album-position-filter-select,
+#album-club-filter-select,
+#album-poste-filter-select {
   padding: 0.45rem 0.8rem;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.15);
@@ -593,16 +597,24 @@ html, body {
 
 #sort-select:hover,
 #position-filter-select:hover,
+#club-filter-select:hover,
+#poste-filter-select:hover,
 #album-sort-select:hover,
-#album-position-filter-select:hover {
+#album-position-filter-select:hover,
+#album-club-filter-select:hover,
+#album-poste-filter-select:hover {
   border-color: var(--gold);
   background-color: rgba(255,255,255,0.1);
 }
 
 #sort-select:focus,
 #position-filter-select:focus,
+#club-filter-select:focus,
+#poste-filter-select:focus,
 #album-sort-select:focus,
-#album-position-filter-select:focus {
+#album-position-filter-select:focus,
+#album-club-filter-select:focus,
+#album-poste-filter-select:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(255,209,0,0.25);
@@ -611,8 +623,12 @@ html, body {
 /* Options dans le select (fond sombre) */
 #sort-select option,
 #position-filter-select option,
+#club-filter-select option,
+#poste-filter-select option,
 #album-sort-select option,
-#album-position-filter-select option {
+#album-position-filter-select option,
+#album-club-filter-select option,
+#album-poste-filter-select option {
   background: #1a1c2e;
   color: #fff;
 }
