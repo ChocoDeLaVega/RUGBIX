@@ -2273,3 +2273,24 @@ textarea.contact-input {
   font-size: 0.85rem;
   padding: 1rem;
 }
+
+/* ===== ADMIN EDIT PLAYER ===== */
+.admin-edit-sep {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.5rem 0 0.3rem;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 0.3rem;
+}
+
+#edit-player-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+#edit-player-fields.hidden { display: none; }

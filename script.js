@@ -193,6 +193,19 @@ async function loadPlayersOverrides() {
     }
 
     console.log(`✓ Overrides : ${data.added?.length||0} ajouts, ${data.removed?.length||0} suppressions`);
+
+    // Appliquer les modifications de joueurs existants
+    if (data.edited && data.edited.length > 0) {
+      data.edited.forEach(edit => {
+        const idx = PLAYERS.findIndex(p => makeKey(p) === edit.key);
+        if (idx >= 0) {
+          if (edit.team) PLAYERS[idx].team = edit.team;
+          if (edit.rarity) PLAYERS[idx].rarity = edit.rarity;
+          if (edit.positions) PLAYERS[idx].positions = edit.positions;
+        }
+      });
+      console.log(`✓ ${data.edited.length} modification(s) appliquée(s)`);
+    }
   } catch(e) {
     console.warn("Overrides non chargés:", e.message);
   }
@@ -381,17 +394,44 @@ async function applyGift(gift) {
     updateCoinsDisplay();
     saveData();
     renderPacks();
+
   } else if (gift.type === "card") {
     const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
     if (player) {
+      // addCardToCollection horodate automatiquement si c'est une nouvelle carte
       addCardToCollection(player, false);
       saveData();
       renderCollection();
     }
+
   } else if (gift.type === "pack") {
-    // Les cartes sont déjà ajoutées par l'admin côté Firestore
-    // On recharge la progression pour synchroniser
+    // Les cartes ont été ajoutées dans Firestore par l'admin
+    // On recharge depuis Firebase puis on horodate les nouvelles cartes
+    const keysBefore = new Set(Object.keys(collection));
     await loadProgressFromFirebase();
+
+    // Horodater toutes les cartes qui n'existaient pas avant
+    const now = Date.now();
+    let changed = false;
+    if (gift.cards && gift.cards.length > 0) {
+      gift.cards.forEach(cardKey => {
+        if (!keysBefore.has(cardKey) && collection[cardKey]) {
+          if (!collection[cardKey].obtainedAt) {
+            collection[cardKey].obtainedAt = now;
+            changed = true;
+          }
+        }
+      });
+    } else {
+      // Fallback : horodater toutes les nouvelles entrées
+      Object.keys(collection).forEach(key => {
+        if (!keysBefore.has(key) && collection[key] && !collection[key].obtainedAt) {
+          collection[key].obtainedAt = now;
+          changed = true;
+        }
+      });
+    }
+    if (changed) saveData();
     renderCollection();
     updateCoinsDisplay();
   }
@@ -1881,6 +1921,27 @@ async function renderAdmin() {
         <div class="admin-db-tabs">
           <button class="admin-db-tab active" id="admin-tab-add">➕ Ajouter</button>
           <button class="admin-db-tab" id="admin-tab-remove">🗑️ Supprimer</button>
+          <button class="admin-db-tab" id="admin-tab-edit">✏️ Modifier</button>
+        </div>
+        <!-- Formulaire modification -->
+        <div id="admin-form-edit" class="admin-db-form hidden">
+          <input type="text" id="edit-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur à modifier">
+          <select id="edit-player-select" class="admin-select" size="5" style="height:120px"></select>
+          <div id="edit-player-fields" class="hidden">
+            <div class="admin-edit-sep">Modifier les champs :</div>
+            <div class="admin-row">
+              <select id="edit-player-team" class="admin-select">
+                ${Object.entries(TEAMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("")}
+              </select>
+              <select id="edit-player-rarity" class="admin-select">
+                ${Object.entries(RARITIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}
+              </select>
+            </div>
+            <input type="text" id="edit-player-positions" class="admin-input" placeholder="Poste(s) — sépare par | (ex: Pilier|Talonneur)">
+            <button id="admin-edit-player-btn" class="admin-btn">💾 Sauvegarder pour tous</button>
+            <div id="admin-edit-player-status" class="admin-status"></div>
+          </div>
+          <p class="admin-note">⚠️ La modification s'applique définitivement pour tous les joueurs via Firestore.</p>
         </div>
         <div id="admin-form-add" class="admin-db-form">
           <div class="admin-row">
@@ -1975,6 +2036,19 @@ function refreshRemovePlayerList(q) {
   sel.innerHTML = filtered.map(p =>
     `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
   ).join("");
+}
+
+function refreshEditPlayerList(q) {
+  const sel = document.getElementById("edit-player-select");
+  if (!sel) return;
+  const filtered = PLAYERS.filter(p =>
+    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
+    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
+  ).slice(0, 60);
+  sel.innerHTML = filtered.map(p =>
+    `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
+  ).join("");
+  document.getElementById("edit-player-fields").classList.add("hidden");
 }
 
 async function loadAdminHistory() {
@@ -2114,14 +2188,27 @@ function bindAdminEvents() {
   document.getElementById("admin-tab-add").onclick = () => {
     document.getElementById("admin-tab-add").classList.add("active");
     document.getElementById("admin-tab-remove").classList.remove("active");
+    document.getElementById("admin-tab-edit").classList.remove("active");
     document.getElementById("admin-form-add").classList.remove("hidden");
     document.getElementById("admin-form-remove").classList.add("hidden");
+    document.getElementById("admin-form-edit").classList.add("hidden");
   };
   document.getElementById("admin-tab-remove").onclick = () => {
     document.getElementById("admin-tab-remove").classList.add("active");
     document.getElementById("admin-tab-add").classList.remove("active");
+    document.getElementById("admin-tab-edit").classList.remove("active");
     document.getElementById("admin-form-remove").classList.remove("hidden");
     document.getElementById("admin-form-add").classList.add("hidden");
+    document.getElementById("admin-form-edit").classList.add("hidden");
+  };
+  document.getElementById("admin-tab-edit").onclick = () => {
+    document.getElementById("admin-tab-edit").classList.add("active");
+    document.getElementById("admin-tab-add").classList.remove("active");
+    document.getElementById("admin-tab-remove").classList.remove("active");
+    document.getElementById("admin-form-edit").classList.remove("hidden");
+    document.getElementById("admin-form-add").classList.add("hidden");
+    document.getElementById("admin-form-remove").classList.add("hidden");
+    refreshEditPlayerList("");
   };
 
   // Afficher champ clubs si rareté = legendaire
@@ -2217,6 +2304,70 @@ function bindAdminEvents() {
       st.textContent = `✓ ${name} supprimé pour tous !`;
       try { await logAdminAction("joueur_supprimé", `${name}`); } catch(_) {}
       refreshRemovePlayerList("");
+    } catch(e) {
+      st.textContent = `❌ Erreur : ${e.message}`;
+    }
+  };
+
+  // === Modifier joueur ===
+  document.getElementById("edit-player-search").oninput = (e) => refreshEditPlayerList(e.target.value);
+
+  document.getElementById("edit-player-select").onchange = () => {
+    const key = document.getElementById("edit-player-select").value;
+    if (!key) { document.getElementById("edit-player-fields").classList.add("hidden"); return; }
+    const player = PLAYERS.find(p => `${p.name}|${p.team}` === key);
+    if (!player) return;
+
+    // Pré-remplir les champs avec les valeurs actuelles
+    document.getElementById("edit-player-team").value = player.team;
+    document.getElementById("edit-player-rarity").value = player.rarity;
+    document.getElementById("edit-player-positions").value = (player.positions||[]).join("|");
+    document.getElementById("edit-player-fields").classList.remove("hidden");
+    document.getElementById("admin-edit-player-status").textContent = "";
+  };
+
+  document.getElementById("admin-edit-player-btn").onclick = async () => {
+    const key = document.getElementById("edit-player-select").value;
+    const st = document.getElementById("admin-edit-player-status");
+    if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+
+    const newTeam = document.getElementById("edit-player-team").value;
+    const newRarity = document.getElementById("edit-player-rarity").value;
+    const newPositions = document.getElementById("edit-player-positions").value
+      .split("|").map(p=>p.trim()).filter(Boolean);
+
+    if (!newPositions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
+
+    st.textContent = "Sauvegarde en cours...";
+    try {
+      // Charger les overrides existants
+      const doc = await db.collection("playersOverrides").doc("data").get();
+      const existing = doc.exists ? doc.data() : { added: [], removed: [] };
+      const added = existing.added || [];
+      const removed = existing.removed || [];
+
+      // Stocker les modifications dans un champ "edited"
+      const edited = existing.edited || [];
+      const editIdx = edited.findIndex(e => e.key === key);
+      const editEntry = { key, team: newTeam, rarity: newRarity, positions: newPositions };
+      if (editIdx >= 0) edited[editIdx] = editEntry;
+      else edited.push(editEntry);
+
+      await db.collection("playersOverrides").doc("data").set(
+        { added, removed, edited, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: "ChocoDeLaVega" }
+      );
+
+      // Appliquer localement immédiatement
+      const idx = PLAYERS.findIndex(p => `${p.name}|${p.team}` === key);
+      if (idx >= 0) {
+        PLAYERS[idx].team = newTeam;
+        PLAYERS[idx].rarity = newRarity;
+        PLAYERS[idx].positions = newPositions;
+      }
+
+      const playerName = key.split("|")[0];
+      st.textContent = `✓ ${playerName} modifié pour tous !`;
+      try { await logAdminAction("joueur_modifié", `${playerName} → club:${TEAMS[newTeam]?.name||newTeam}, rareté:${newRarity}`); } catch(_) {}
     } catch(e) {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
