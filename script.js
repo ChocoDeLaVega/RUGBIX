@@ -63,8 +63,8 @@ firebase.auth().onAuthStateChanged(async user => {
     }
 
     await loadProgressFromFirebase();
-    await loadPlayersOverrides(); // Charger les ajouts/suppressions de joueurs admin
-    // Toujours mettre à jour le pseudo dans Firestore
+    await loadPlayersOverrides();
+
     try {
       await db.collection("users").doc(currentUser.uid).set(
         { username, email: currentUser.email },
@@ -72,8 +72,24 @@ firebase.auth().onAuthStateChanged(async user => {
       );
     } catch(e) {}
 
+    // Marquer le joueur comme connecté (présence temps réel)
+    try {
+      await db.collection("presence").doc(currentUser.uid).set({
+        username,
+        connectedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Supprimer la présence quand la fenêtre se ferme
+      window.addEventListener("beforeunload", () => {
+        db.collection("presence").doc(currentUser.uid).delete();
+      });
+    } catch(e) {}
+
     init();
   } else {
+    // Supprimer la présence à la déconnexion
+    if (currentUser) {
+      try { await db.collection("presence").doc(currentUser.uid).delete(); } catch(e) {}
+    }
     currentUser = null;
     document.getElementById("auth-screen").classList.remove("hidden");
     document.getElementById("game-client").classList.add("hidden");
@@ -101,14 +117,14 @@ async function loadProgressFromFirebase() {
       }
     } else {
       collection = {};
-      coins = 200;
+      coins = 900;
       equipe = {};
       await saveToFirebase();
     }
   } catch(e) {
     console.error("Erreur chargement:", e);
     collection = {};
-    coins = 200;
+    coins = 900;
     equipe = {};
   }
 }
@@ -439,9 +455,11 @@ async function applyGift(gift) {
 
 function showGiftModal(gift) {
   const body = document.getElementById("gift-body");
+  const modalContent = document.querySelector(".gift-modal-content");
   body.innerHTML = "";
 
   if (gift.type === "coins") {
+    modalContent.style.width = "340px";
     body.innerHTML = `
       <div class="gift-coins">
         <div class="gift-coins-amount">+${gift.amount}</div>
@@ -449,26 +467,43 @@ function showGiftModal(gift) {
       </div>`;
 
   } else if (gift.type === "card") {
+    modalContent.style.width = "220px";
     const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
     if (player) {
       const cardEl = buildCardElement(player, null, {});
-      cardEl.classList.add("gift-card");
+      cardEl.style.animation = "revealCard 0.4s ease forwards";
+      cardEl.style.opacity = "0";
       body.appendChild(cardEl);
     } else {
-      body.innerHTML = `<p class="gift-text">Une nouvelle carte a été ajoutée à ta collection !</p>`;
+      body.innerHTML = `<p style="color:#666">Une nouvelle carte a été ajoutée à ta collection !</p>`;
     }
 
   } else if (gift.type === "pack") {
     const pack = PACKS.find(p => p.id === gift.packId);
-    body.innerHTML = `<div class="gift-pack-name">${pack?.name || "Un pack"}</div>`;
-    if (gift.cards && gift.cards.length) {
+    const cardKeys = gift.cards || [];
+    const count = cardKeys.length;
+
+    // Largeur dynamique : max 5 cartes par ligne, chaque carte ~148px + gap
+    const CARD_W = 148;
+    const GAP = 12;
+    const cols = Math.min(count, 5);
+    const gridW = cols * CARD_W + (cols - 1) * GAP;
+    const totalW = Math.min(gridW + 48, window.innerWidth * 0.94);
+    modalContent.style.width = totalW + "px";
+
+    body.innerHTML = `<div class="gift-pack-name">${pack?.name || "Un pack"} — ${count} carte${count>1?"s":""}</div>`;
+
+    if (count > 0) {
       const grid = document.createElement("div");
       grid.className = "gift-cards-grid";
-      gift.cards.forEach(cardKey => {
+      grid.style.gridTemplateColumns = `repeat(${cols}, ${CARD_W}px)`;
+
+      cardKeys.forEach((cardKey, index) => {
         const player = PLAYERS.find(p => getCardKey(p) === cardKey);
         if (player) {
           const el = buildCardElement(player, null, {});
-          el.classList.add("gift-card");
+          el.style.animation = `revealCard 0.4s ease ${index * 0.08}s forwards`;
+          el.style.opacity = "0";
           grid.appendChild(el);
         }
       });
@@ -1870,6 +1905,10 @@ async function renderAdmin() {
       <div class="admin-card">
         <h3>📊 Statistiques</h3>
         <div class="admin-stat"><span>Joueurs inscrits</span><strong>${adminUsers.length}</strong></div>
+        <div class="admin-stat">
+          <span>🟢 Joueurs connectés</span>
+          <strong id="admin-online-count" style="color:#05DF72">—</strong>
+        </div>
         <div class="admin-stat"><span>RUGBIZ en circulation</span><strong>${totalCoins}</strong></div>
         <div class="admin-stat"><span>Cartes obtenues</span><strong>${totalCards}</strong></div>
         <div class="admin-stat"><span>Joueurs en base</span><strong>${PLAYERS.length}</strong></div>
@@ -2012,6 +2051,12 @@ async function renderAdmin() {
   refreshAdminCardList("");
   refreshRemovePlayerList("");
   bindAdminEvents();
+
+  // Listener temps réel pour les joueurs connectés
+  db.collection("presence").onSnapshot(snap => {
+    const el = document.getElementById("admin-online-count");
+    if (el) el.textContent = snap.size;
+  });
 }
 
 function refreshAdminCardList(q) {

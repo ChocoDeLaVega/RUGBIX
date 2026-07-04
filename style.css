@@ -2116,11 +2116,14 @@ textarea.contact-input {
 
 /* ===== MODALE CADEAU REÇU ===== */
 .gift-modal-content {
-  max-width: 520px;
-  width: 92vw;
   text-align: center;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem 1.5rem;
   position: relative;
+  max-width: 94vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  /* width défini dynamiquement par JS selon le contenu */
+  transition: width 0.2s ease;
 }
 
 .gift-header {
@@ -2196,10 +2199,11 @@ textarea.contact-input {
   margin-top: 0.3rem;
 }
 
-/* Cadeau carte */
+/* Cadeau carte unique — taille normale */
 .gift-card {
   animation: revealCard 0.4s ease forwards;
   opacity: 0;
+  flex-shrink: 0;
 }
 
 /* Cadeau pack */
@@ -2211,19 +2215,12 @@ textarea.contact-input {
   margin-bottom: 0.5rem;
 }
 
+/* Grille de cartes pour les packs — grid CSS avec colonnes calculées en JS */
 .gift-cards-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  gap: 12px;
   justify-content: center;
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.gift-cards-grid .gift-card {
-  transform: scale(0.75);
-  transform-origin: top center;
-  margin: -10px;
+  width: 100%;
 }
 
 /* ===== HISTORIQUE ADMIN ===== */
@@ -2294,3 +2291,10 @@ textarea.contact-input {
 }
 
 #edit-player-fields.hidden { display: none; }
+
+/* Gift modal — centrée, scrollable si trop de cartes */
+#gift-modal {
+  align-items: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
