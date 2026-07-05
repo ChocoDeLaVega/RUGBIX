@@ -578,6 +578,20 @@ function setupTabs() {
   });
   document.getElementById("poste-filter-select").addEventListener("change", renderCollection);
 
+  // Barre de recherche Mon Club
+  const searchInput = document.getElementById("collection-search");
+  const searchClear = document.getElementById("collection-search-clear");
+  searchInput.addEventListener("input", () => {
+    searchClear.classList.toggle("hidden", searchInput.value === "");
+    renderCollection();
+  });
+  searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    searchClear.classList.add("hidden");
+    renderCollection();
+    searchInput.focus();
+  });
+
   // Album
   document.getElementById("album-sort-select").addEventListener("change", () => {
     updateSecondaryFilters("album");
@@ -1107,6 +1121,18 @@ function renderCollection() {
 
   const sortMode = document.getElementById("sort-select")?.value || "rarity";
   let ownedPlayers = PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
+
+  // Filtre par recherche textuelle
+  const searchQuery = (document.getElementById("collection-search")?.value || "").trim().toLowerCase();
+  if (searchQuery) {
+    ownedPlayers = ownedPlayers.filter(p =>
+      p.name.toLowerCase().includes(searchQuery)
+    );
+    if (ownedPlayers.length === 0) {
+      container.innerHTML = `<div class="empty-card">Aucun joueur trouvé pour "<strong>${searchQuery}</strong>".</div>`;
+      return;
+    }
+  }
 
   if (sortMode === "position") {
     const posFilter = document.getElementById("position-filter-select")?.value || "all";
@@ -2426,9 +2452,30 @@ setupAuth();
 setupLegalModals();
 
 function setupLegalModals() {
-  // Mentions légales
-  document.getElementById("footer-mentions-btn").addEventListener("click", () => {
-    document.getElementById("mentions-modal").classList.remove("hidden");
+  // Boutons du footer principal (jeu)
+  const mentionsHandler = () => document.getElementById("mentions-modal").classList.remove("hidden");
+  const privacyHandler  = () => document.getElementById("privacy-modal").classList.remove("hidden");
+  const contactHandler  = () => {
+    if (currentUser) {
+      const pseudo = currentUser.displayName || currentUser.email.split("@")[0];
+      document.getElementById("contactName").value = pseudo;
+      document.getElementById("contactEmail").value = currentUser.email;
+    }
+    document.getElementById("contactSuccess").classList.add("hidden");
+    document.getElementById("contact-modal").classList.remove("hidden");
+  };
+
+  // Footer du jeu
+  document.getElementById("footer-mentions-btn").addEventListener("click", mentionsHandler);
+  document.getElementById("footer-privacy-btn").addEventListener("click", privacyHandler);
+  document.getElementById("footer-contact-btn").addEventListener("click", contactHandler);
+
+  // Footer de la page de connexion (mêmes modales)
+  document.getElementById("auth-footer-mentions-btn").addEventListener("click", mentionsHandler);
+  document.getElementById("auth-footer-privacy-btn").addEventListener("click", privacyHandler);
+  document.getElementById("auth-footer-contact-btn").addEventListener("click", () => {
+    document.getElementById("contactSuccess").classList.add("hidden");
+    document.getElementById("contact-modal").classList.remove("hidden");
   });
   document.getElementById("close-mentions-btn").addEventListener("click", () => {
     document.getElementById("mentions-modal").classList.add("hidden");
@@ -2438,20 +2485,12 @@ function setupLegalModals() {
   document.getElementById("footer-privacy-btn").addEventListener("click", () => {
     document.getElementById("privacy-modal").classList.remove("hidden");
   });
+  // Fermer les modales
+  document.getElementById("close-mentions-btn").addEventListener("click", () => {
+    document.getElementById("mentions-modal").classList.add("hidden");
+  });
   document.getElementById("close-privacy-btn").addEventListener("click", () => {
     document.getElementById("privacy-modal").classList.add("hidden");
-  });
-
-  // Contact
-  document.getElementById("footer-contact-btn").addEventListener("click", () => {
-    // Pré-remplir le pseudo si connecté
-    if (currentUser) {
-      const pseudo = currentUser.displayName || currentUser.email.split("@")[0];
-      document.getElementById("contactName").value = pseudo;
-      document.getElementById("contactEmail").value = currentUser.email;
-    }
-    document.getElementById("contactSuccess").classList.add("hidden");
-    document.getElementById("contact-modal").classList.remove("hidden");
   });
   document.getElementById("close-contact-btn").addEventListener("click", () => {
     document.getElementById("contact-modal").classList.add("hidden");

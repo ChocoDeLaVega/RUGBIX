@@ -69,6 +69,18 @@ const db = firebase.firestore();
       <span>Connexion en cours...</span>
     </div>
   </div>
+
+  <!-- Footer de la page de connexion -->
+  <footer class="auth-footer">
+    <button class="footer-link" id="auth-footer-mentions-btn">Mentions Légales</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link" id="auth-footer-privacy-btn">Politique de confidentialité</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link" id="auth-footer-contact-btn">Contact</button>
+    <span class="footer-sep">·</span>
+    <span class="footer-version">Version 1</span>
+  </footer>
+
 </div>
 
 <div class="game-client hidden" id="game-client">
@@ -133,6 +145,10 @@ const db = firebase.firestore();
           <select id="poste-filter-select" class="hidden">
             <option value="all">Tous les postes</option>
           </select>
+        </div>
+        <div class="search-bar-wrapper">
+          <input type="text" id="collection-search" class="collection-search-input" placeholder="🔍 Rechercher un joueur par nom ou prénom...">
+          <button id="collection-search-clear" class="search-clear-btn hidden">✕</button>
         </div>
         <div id="collection-container" class="cards-grid"></div>
       </section>
@@ -324,7 +340,7 @@ const db = firebase.firestore();
     <div class="gift-header">
       <div class="gift-icon">🎁</div>
       <h2 class="gift-title">Cadeau reçu !</h2>
-      <p class="gift-from">De la part de <strong>ChocoDeLaVega</strong></p>
+      <p class="gift-from">Cadeau envoyé par <strong>l'ADMIN</strong></p>
     </div>
     <div id="gift-body" class="gift-body"></div>
     <button id="close-gift-btn" class="auth-btn" style="margin-top:1.2rem">Super, merci !</button>
