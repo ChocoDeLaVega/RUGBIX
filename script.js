@@ -2201,15 +2201,33 @@ function bindAdminEvents() {
       const doc = await db.collection("users").doc(uid).get();
       const userCollection = doc.data()?.collection || {};
       const drawn = [];
-      for (let i = 0; i < pack.cardsCount; i++) {
-        drawn.push(pack.forcedRarity ? drawCardOfRarity(pack.forcedRarity) : drawRandomCard(pack));
+
+      // XV Démarrage : tirage positionnel spécial
+      if (pack.id === "xv_demarrage") {
+        const xvCards = drawXVDemarrage();
+        drawn.push(...xvCards);
       }
+      // Coup d'Envoi : tirage avec les probabilités du pack quotidien
+      else if (pack.id === "coup_envoi") {
+        const result = drawCoupEnvoi();
+        drawn.push(...result.cards);
+        // Bonus RUGBIZ aussi
+        const userCoins = (doc.data()?.coins || 0) + result.bonus;
+        await db.collection("users").doc(uid).update({ coins: userCoins });
+      }
+      // Autres packs : tirage normal
+      else {
+        for (let i = 0; i < pack.cardsCount; i++) {
+          drawn.push(pack.forcedRarity ? drawCardOfRarity(pack.forcedRarity) : drawRandomCard(pack));
+        }
+      }
+
       const cardKeys = [];
       drawn.forEach(card => {
         const key = getCardKey(card);
         cardKeys.push(key);
         const ex = userCollection[key] || { count:0, lockedCount:0 };
-        userCollection[key] = { count:(ex.count||0)+1, lockedCount:ex.lockedCount||0 };
+        userCollection[key] = { count:(ex.count||0)+1, lockedCount: pack.locked ? (ex.lockedCount||0)+1 : ex.lockedCount||0 };
       });
       await db.collection("users").doc(uid).update({ collection: userCollection });
       const pseudo = adminUsers.find(u=>u.uid===uid)?.username||"?";
