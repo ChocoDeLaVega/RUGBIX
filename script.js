@@ -405,6 +405,8 @@ function setupGiftListener() {
 }
 
 async function applyGift(gift) {
+  const now = Date.now();
+
   if (gift.type === "coins") {
     coins += gift.amount;
     updateCoinsDisplay();
@@ -414,39 +416,32 @@ async function applyGift(gift) {
   } else if (gift.type === "card") {
     const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
     if (player) {
-      // addCardToCollection horodate automatiquement si c'est une nouvelle carte
       addCardToCollection(player, false);
+      // Toujours horodater la carte reçue en cadeau (même si doublon)
+      if (collection[gift.cardKey]) {
+        collection[gift.cardKey].obtainedAt = now;
+      }
       saveData();
       renderCollection();
     }
 
   } else if (gift.type === "pack") {
-    // Les cartes ont été ajoutées dans Firestore par l'admin
-    // On recharge depuis Firebase puis on horodate les nouvelles cartes
     const keysBefore = new Set(Object.keys(collection));
     await loadProgressFromFirebase();
 
-    // Horodater toutes les cartes qui n'existaient pas avant
-    const now = Date.now();
+    // Horodater TOUTES les cartes du cadeau (nouvelles ou doublons)
     let changed = false;
-    if (gift.cards && gift.cards.length > 0) {
-      gift.cards.forEach(cardKey => {
-        if (!keysBefore.has(cardKey) && collection[cardKey]) {
-          if (!collection[cardKey].obtainedAt) {
-            collection[cardKey].obtainedAt = now;
-            changed = true;
-          }
-        }
-      });
-    } else {
-      // Fallback : horodater toutes les nouvelles entrées
-      Object.keys(collection).forEach(key => {
-        if (!keysBefore.has(key) && collection[key] && !collection[key].obtainedAt) {
-          collection[key].obtainedAt = now;
-          changed = true;
-        }
-      });
-    }
+    const cardKeys = gift.cards && gift.cards.length > 0
+      ? gift.cards
+      : Object.keys(collection).filter(k => !keysBefore.has(k));
+
+    cardKeys.forEach(cardKey => {
+      if (collection[cardKey]) {
+        collection[cardKey].obtainedAt = now;
+        changed = true;
+      }
+    });
+
     if (changed) saveData();
     renderCollection();
     updateCoinsDisplay();
@@ -603,6 +598,20 @@ function setupTabs() {
     renderAlbum();
   });
   document.getElementById("album-poste-filter-select").addEventListener("change", renderAlbum);
+
+  // Barre de recherche Album
+  const albumSearch = document.getElementById("album-search");
+  const albumClear = document.getElementById("album-search-clear");
+  albumSearch.addEventListener("input", () => {
+    albumClear.classList.toggle("hidden", albumSearch.value === "");
+    renderAlbum();
+  });
+  albumClear.addEventListener("click", () => {
+    albumSearch.value = "";
+    albumClear.classList.add("hidden");
+    renderAlbum();
+    albumSearch.focus();
+  });
 }
 
 const POSITION_ORDER = [
@@ -1178,6 +1187,16 @@ function renderAlbum() {
 
   const sortMode = document.getElementById("album-sort-select")?.value || "rarity";
   let allPlayers = [...PLAYERS];
+
+  // Filtre par recherche textuelle
+  const albumQuery = (document.getElementById("album-search")?.value || "").trim().toLowerCase();
+  if (albumQuery) {
+    allPlayers = allPlayers.filter(p => p.name.toLowerCase().includes(albumQuery));
+    if (allPlayers.length === 0) {
+      container.innerHTML = `<div class="empty-card">Aucun joueur trouvé pour "<strong>${albumQuery}</strong>".</div>`;
+      return;
+    }
+  }
 
   if (sortMode === "position") {
     const posFilter = document.getElementById("album-position-filter-select")?.value || "all";
@@ -2058,14 +2077,14 @@ async function renderAdmin() {
             <button id="admin-add-player-btn" class="admin-btn">Ajouter</button>
           </div>
           <div id="admin-add-player-status" class="admin-status"></div>
-          <p class="admin-note">⚠️ Ajout en mémoire uniquement. Ajoute aussi dans Google Sheets pour le rendre permanent.</p>
+          <p class="admin-note">⚠️ Ajout en mémoire uniquement. Modification sauvegardée dans Firestore pour tous les joueurs.</p>
         </div>
         <div id="admin-form-remove" class="admin-db-form hidden">
           <input type="text" id="remove-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
           <select id="remove-player-select" class="admin-select" size="6" style="height:140px"></select>
           <button id="admin-remove-player-btn" class="admin-btn" style="background:#cc0000;color:#fff">Supprimer</button>
           <div id="admin-remove-player-status" class="admin-status"></div>
-          <p class="admin-note">⚠️ Suppression en mémoire uniquement. Supprime aussi dans Google Sheets pour le rendre permanent.</p>
+          <p class="admin-note">⚠️ Suppression en mémoire uniquement. Suppression sauvegardée dans Firestore pour tous les joueurs.</p>
         </div>
       </div>
 

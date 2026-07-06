@@ -191,6 +191,10 @@ const db = firebase.firestore();
             <option value="all">Tous les postes</option>
           </select>
         </div>
+        <div class="search-bar-wrapper">
+          <input type="text" id="album-search" class="collection-search-input" placeholder="🔍 Rechercher un joueur par nom ou prénom...">
+          <button id="album-search-clear" class="search-clear-btn hidden">✕</button>
+        </div>
         <div id="album-container" class="cards-grid"></div>
       </section>
 
