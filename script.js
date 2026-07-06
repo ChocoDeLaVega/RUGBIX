@@ -1116,13 +1116,21 @@ function getPlayerNote(player) {
 
   const rarity = RARITIES[player.rarity];
   if (!rarity) return 70;
-  const { noteMin, noteMax } = rarity;
+
+  // Protection si noteMin/noteMax absents (ancien data.js)
+  const noteMin = rarity.noteMin ?? 60;
+  const noteMax = rarity.noteMax ?? 79;
+  const range = noteMax - noteMin + 1;
+  if (!range || range <= 0) return noteMin || 70;
+
+  // Hash déterministe basé sur nom + club
   let hash = 0;
   const str = player.name + player.team;
   for (let i = 0; i < str.length; i++) {
     hash = (hash * 31 + str.charCodeAt(i)) & 0xffff;
   }
-  return noteMin + (hash % (noteMax - noteMin + 1));
+  const note = noteMin + (hash % range);
+  return Number.isNaN(note) ? noteMin : note;
 }
 
 // Retourne le label correspondant à une note
