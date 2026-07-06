@@ -1621,7 +1621,11 @@ const EQUIPE_SLOTS = [
   { id: "centre_d",   label: "Centre",             poste: "Centre",           num: 13 },
   { id: "ailier_g",   label: "Ailier",             poste: "Ailier",           num: 11 },
   { id: "ailier_d",   label: "Ailier",             poste: "Ailier",           num: 14 },
-  { id: "arriere",    label: "Arrière",            poste: "Arrière",          num: 15 }
+  { id: "arriere",    label: "Arrière",            poste: "Arrière",          num: 15 },
+  // Remplaçants
+  { id: "rempl_avants",   label: "Remplaçant\nAvants",   poste: "Avants",           num: 16, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
+  { id: "rempl_demis",    label: "Remplaçant\nDemis",    poste: "Demis",            num: 17, remplacant: true, postes: ["Demi de mêlée","Demi d'ouverture"] },
+  { id: "rempl_arrieres", label: "Remplaçant\nArrières", poste: "Arrières",         num: 18, remplacant: true, postes: ["Centre","Ailier","Arrière"] }
 ];
 
 // Rareté order pour compo type
@@ -1635,10 +1639,13 @@ function renderEquipe() {
   const container = document.getElementById("pitch-container");
   container.innerHTML = "";
 
+  const wrapper = document.createElement("div");
+  wrapper.className = "equipe-wrapper";
+
+  // === TERRAIN ===
   const pitch = document.createElement("div");
   pitch.className = "pitch";
 
-  // Layout du terrain : rangées de joueurs (du bas vers le haut = des arrières vers avants)
   const rows = [
     ["arriere"],
     ["ailier_g", "centre_g", "centre_d", "ailier_d"],
@@ -1659,7 +1666,27 @@ function renderEquipe() {
     pitch.appendChild(row);
   });
 
-  container.appendChild(pitch);
+  wrapper.appendChild(pitch);
+
+  // === REMPLAÇANTS (panneau latéral) ===
+  const remplPanel = document.createElement("div");
+  remplPanel.className = "remplacants-panel";
+
+  const remplTitle = document.createElement("div");
+  remplTitle.className = "remplacants-title";
+  remplTitle.textContent = "Remplaçants";
+  remplPanel.appendChild(remplTitle);
+
+  const remplSlots = EQUIPE_SLOTS.filter(s => s.remplacant);
+  remplSlots.forEach(slot => {
+    const player = equipe[slot.id] || null;
+    const slotEl = buildPitchSlot(slot, player);
+    slotEl.classList.add("remplacant-slot");
+    remplPanel.appendChild(slotEl);
+  });
+
+  wrapper.appendChild(remplPanel);
+  container.appendChild(wrapper);
 
   // Boutons
   document.getElementById("compo-type-btn").onclick = doCompoType;
@@ -1734,13 +1761,19 @@ function setupPlayerSelectModal() {
 
 function openPlayerSelect(slot) {
   currentSlotId = slot.id;
-  document.getElementById("player-select-title").textContent =
-    `Choisir — ${slot.label} (${slot.poste})`;
 
-  // Joueurs de l'effectif correspondant au poste
+  // Label adapté selon remplaçant ou titulaire
+  const titleLabel = slot.remplacant
+    ? `Choisir — ${slot.label.replace("\n", " ")} (N°${slot.num})`
+    : `Choisir — ${slot.label} (${slot.poste})`;
+  document.getElementById("player-select-title").textContent = titleLabel;
+
+  // Filtrer selon les postes du slot (remplaçant = plusieurs postes, titulaire = un seul)
+  const slotPostes = slot.remplacant ? slot.postes : [slot.poste];
+
   const eligible = PLAYERS.filter(p =>
     getEntry(getCardKey(p)).count > 0 &&
-    (p.positions || []).includes(slot.poste)
+    (p.positions || []).some(pos => slotPostes.includes(pos))
   );
 
   // Tri par rareté décroissante puis nom
@@ -1751,7 +1784,7 @@ function openPlayerSelect(slot) {
 
   // Construire le filtre club à partir des joueurs éligibles
   const clubs = [...new Set(eligible.map(p => p.team))].sort((a,b) =>
-    TEAMS[a].name.localeCompare(TEAMS[b].name)
+    (TEAMS[a]?.name||a).localeCompare(TEAMS[b]?.name||b)
   );
 
   const list = document.getElementById("player-select-list");
@@ -1856,24 +1889,19 @@ function doCompoType() {
   const newEquipe = {};
 
   EQUIPE_SLOTS.forEach(slot => {
+    // Postes à filtrer selon titulaire ou remplaçant
+    const slotPostes = slot.remplacant ? slot.postes : [slot.poste];
+
     const eligible = PLAYERS.filter(p =>
       getEntry(getCardKey(p)).count > 0 &&
-      (p.positions || []).includes(slot.poste) &&
+      (p.positions || []).some(pos => slotPostes.includes(pos)) &&
       !Object.values(newEquipe).some(assigned => getCardKey(assigned) === getCardKey(p))
     );
 
     if (eligible.length === 0) return;
 
-    // Choisit le joueur de rareté la plus élevée (aléatoire si égalité)
-    eligible.sort((a, b) => {
-      const ra = RARITY_RANK[a.rarity] || 0;
-      const rb = RARITY_RANK[b.rarity] || 0;
-      return rb - ra;
-    });
-
-    // Prendre le meilleur disponible
-    const best = eligible[0];
-    newEquipe[slot.id] = best;
+    eligible.sort((a, b) => (RARITY_RANK[b.rarity]||0) - (RARITY_RANK[a.rarity]||0));
+    newEquipe[slot.id] = eligible[0];
   });
 
   equipe = newEquipe;

@@ -2373,3 +2373,49 @@ textarea.contact-input {
 .search-clear-btn.hidden {
   display: none;
 }
+
+/* ===== REMPLAÇANTS ===== */
+.equipe-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2rem;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.remplacants-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1rem 0.8rem;
+  min-width: 120px;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.remplacants-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.remplacant-slot {
+  width: 110px !important;
+  min-height: 90px;
+}
+
+/* Label remplaçant sur 2 lignes */
+.remplacant-slot .slot-label {
+  white-space: pre-line;
+  text-align: center;
+  font-size: 0.55rem;
+  line-height: 1.3;
+}
