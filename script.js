@@ -462,7 +462,7 @@ function showGiftModal(gift) {
     body.innerHTML = `
       <div class="gift-coins">
         <div class="gift-coins-amount">+${gift.amount}</div>
-        <div class="gift-coins-label"><span class="rubiz-symbol">R</span> RUGBIZ</div>
+        <div class="gift-coins-label"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAEEklEQVR4nI2US2wbVRSG/zPjR5y4jp1HRR5NSUUDOFVTREmqhqgRLHht6MJRKxAgwaYbkCqxKEKaDhJCCDYsEKqEWMDOLrBoJEAgGpdUgpI0tJAozYM4T8fO2OPEHj9mPPewyLMJoPyre3/pfvecc+85wH+IGcTXFcdOjwBc3+XtS4qiSJvrsKK4ON9/mI1rTduXMW3w9w9760yHX5v84kNt4rPpuZvvlWI33s0v31JHxn+8dAEAiAD+FyjthqmqKr786I3WZ559rD+rLQXTi4twuyWULQumUYCvugqagW9ff//m+cnJlyyQyuvsdW3Vg3kd7s29XNXd3XYtMTUWrPZ7zCd6jjuK+TwVjTz0dIZjE/NlJ/HZT948cYVIfS0cDsnoi9ibHGk7vrBEpIoXnj96yc4m20mGtWKwK6bZUtnbQI66Q1Th9Un+Op8rk7csMo1Xf7jyynN9fRE7HA7J90XIDJKkPvtu/wcBu6BdMHK6OPlkh+PG978hldAwuJzG/EwcB+ur0NP9CKoDRWl5foW9rsq3AfouNBrkXRGGJWbA57efIjNXU1vrZT2epOMdLWgPNqCUnMWxFieOtNajaJaRWzMkkiVaTevdw/0XD5Oqis3HlABgYGCUACCTjHeKksFOmXlVz8DIZqElUmjv6sSZc+fRevpFXI0MwrLKBIIti7JrdmL6BAC0t4/RVsq9K2MMAHpKb/K5SpTLOmFaAlUeCUaesZCSwONx/Bm9Cp9HhmUDpVKZK4ixtKA1AsDoaHIbuKmFRU0OtriRXTNQMm245ApM/RXD3dtTfK+ump8+3WauZV0V8VQOlmXDc8CJTDon72Ssp7xBjy2lk5ZlI53OYm01h7xRREbP4/HOh8lFKPma2+yapmbo6SzyBYsYwOKKkQAADOx45YGNzfh06k7XowHkciWUbUZ8MYX4cgZerxu1gUrPr4NDmJmcZXK5qd4vS5mcJYbGU2MAgN6oQHQDqEajAgB+vh3/qau9zmyocTsLRcGmaZPfXwkjb0LXC0gnF3HwgVqs5m27JlApzSYL479P6+PMTEQkdn5sEQ6F5LhenLszoX3tdkgEYdterwfeKjeYGT6fB4eONMLhclJrc5XweCtp4u/UpwDsy729W3Xc6pTRSIQZoMGRpXeGxrQ1B9uORGK1LARDCIYEBoQAi7LZ1Fjv/GMsMfzVwMLnigJJjUb3tp4KiMsK6F6iFBue1Ptiy4Xi4cZqhyQRA7DLgm1/4ACCxx50DY3GZ24NTYWIYG4c3+qUPeMnFIIcicDuCdZ0nmyr+7ilydcTqK4EEyG1WrLm5rRvfrk5dXEkhSUFkFRA7GbsUSiErZp0H/V3hLob+86dajh7qtn90Kav3DdY9iFFgbQ50vb4/zOt/wHHdP9RO0HAEwAAAABJRU5ErkJggg==" class="rubiz-coin" style="width:22px;height:22px;vertical-align:middle"> RUGBIZ</div>
       </div>`;
 
   } else if (gift.type === "card") {
@@ -756,7 +756,7 @@ function renderPacks() {
     if (isXV || isDaily) {
       costHtml = `<div class="pack-cost pack-cost-free">GRATUIT</div>`;
     } else {
-      costHtml = `<div class="pack-cost">${pack.cost} <span class="rubiz-symbol">R</span></div>`;
+      costHtml = `<div class="pack-cost">${pack.cost} <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAEEklEQVR4nI2US2wbVRSG/zPjR5y4jp1HRR5NSUUDOFVTREmqhqgRLHht6MJRKxAgwaYbkCqxKEKaDhJCCDYsEKqEWMDOLrBoJEAgGpdUgpI0tJAozYM4T8fO2OPEHj9mPPewyLMJoPyre3/pfvecc+85wH+IGcTXFcdOjwBc3+XtS4qiSJvrsKK4ON9/mI1rTduXMW3w9w9760yHX5v84kNt4rPpuZvvlWI33s0v31JHxn+8dAEAiAD+FyjthqmqKr786I3WZ559rD+rLQXTi4twuyWULQumUYCvugqagW9ff//m+cnJlyyQyuvsdW3Vg3kd7s29XNXd3XYtMTUWrPZ7zCd6jjuK+TwVjTz0dIZjE/NlJ/HZT948cYVIfS0cDsnoi9ibHGk7vrBEpIoXnj96yc4m20mGtWKwK6bZUtnbQI66Q1Th9Un+Op8rk7csMo1Xf7jyynN9fRE7HA7J90XIDJKkPvtu/wcBu6BdMHK6OPlkh+PG978hldAwuJzG/EwcB+ur0NP9CKoDRWl5foW9rsq3AfouNBrkXRGGJWbA57efIjNXU1vrZT2epOMdLWgPNqCUnMWxFieOtNajaJaRWzMkkiVaTevdw/0XD5Oqis3HlABgYGCUACCTjHeKksFOmXlVz8DIZqElUmjv6sSZc+fRevpFXI0MwrLKBIIti7JrdmL6BAC0t4/RVsq9K2MMAHpKb/K5SpTLOmFaAlUeCUaesZCSwONx/Bm9Cp9HhmUDpVKZK4ixtKA1AsDoaHIbuKmFRU0OtriRXTNQMm245ApM/RXD3dtTfK+ump8+3WauZV0V8VQOlmXDc8CJTDon72Ssp7xBjy2lk5ZlI53OYm01h7xRREbP4/HOh8lFKPma2+yapmbo6SzyBYsYwOKKkQAADOx45YGNzfh06k7XowHkciWUbUZ8MYX4cgZerxu1gUrPr4NDmJmcZXK5qd4vS5mcJYbGU2MAgN6oQHQDqEajAgB+vh3/qau9zmyocTsLRcGmaZPfXwkjb0LXC0gnF3HwgVqs5m27JlApzSYL479P6+PMTEQkdn5sEQ6F5LhenLszoX3tdkgEYdterwfeKjeYGT6fB4eONMLhclJrc5XweCtp4u/UpwDsy729W3Xc6pTRSIQZoMGRpXeGxrQ1B9uORGK1LARDCIYEBoQAi7LZ1Fjv/GMsMfzVwMLnigJJjUb3tp4KiMsK6F6iFBue1Ptiy4Xi4cZqhyQRA7DLgm1/4ACCxx50DY3GZ24NTYWIYG4c3+qUPeMnFIIcicDuCdZ0nmyr+7ilydcTqK4EEyG1WrLm5rRvfrk5dXEkhSUFkFRA7GbsUSiErZp0H/V3hLob+86dajh7qtn90Kav3DdY9iFFgbQ50vb4/zOt/wHHdP9RO0HAEwAAAABJRU5ErkJggg==" class="rubiz-coin" style="width:22px;height:22px;vertical-align:middle"></div>`;
     }
 
     // Bouton
@@ -1037,7 +1037,7 @@ function showCoupEnvoiModal(pack, result) {
   bonusEl.innerHTML = `
     <div class="daily-bonus-icon">💰</div>
     <div class="daily-bonus-amount">+${result.bonus}</div>
-    <div class="daily-bonus-label"><span class="rubiz-symbol">R</span> RUGBIZ</div>
+    <div class="daily-bonus-label"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAEEklEQVR4nI2US2wbVRSG/zPjR5y4jp1HRR5NSUUDOFVTREmqhqgRLHht6MJRKxAgwaYbkCqxKEKaDhJCCDYsEKqEWMDOLrBoJEAgGpdUgpI0tJAozYM4T8fO2OPEHj9mPPewyLMJoPyre3/pfvecc+85wH+IGcTXFcdOjwBc3+XtS4qiSJvrsKK4ON9/mI1rTduXMW3w9w9760yHX5v84kNt4rPpuZvvlWI33s0v31JHxn+8dAEAiAD+FyjthqmqKr786I3WZ559rD+rLQXTi4twuyWULQumUYCvugqagW9ff//m+cnJlyyQyuvsdW3Vg3kd7s29XNXd3XYtMTUWrPZ7zCd6jjuK+TwVjTz0dIZjE/NlJ/HZT948cYVIfS0cDsnoi9ibHGk7vrBEpIoXnj96yc4m20mGtWKwK6bZUtnbQI66Q1Th9Un+Op8rk7csMo1Xf7jyynN9fRE7HA7J90XIDJKkPvtu/wcBu6BdMHK6OPlkh+PG978hldAwuJzG/EwcB+ur0NP9CKoDRWl5foW9rsq3AfouNBrkXRGGJWbA57efIjNXU1vrZT2epOMdLWgPNqCUnMWxFieOtNajaJaRWzMkkiVaTevdw/0XD5Oqis3HlABgYGCUACCTjHeKksFOmXlVz8DIZqElUmjv6sSZc+fRevpFXI0MwrLKBIIti7JrdmL6BAC0t4/RVsq9K2MMAHpKb/K5SpTLOmFaAlUeCUaesZCSwONx/Bm9Cp9HhmUDpVKZK4ixtKA1AsDoaHIbuKmFRU0OtriRXTNQMm245ApM/RXD3dtTfK+ump8+3WauZV0V8VQOlmXDc8CJTDon72Ssp7xBjy2lk5ZlI53OYm01h7xRREbP4/HOh8lFKPma2+yapmbo6SzyBYsYwOKKkQAADOx45YGNzfh06k7XowHkciWUbUZ8MYX4cgZerxu1gUrPr4NDmJmcZXK5qd4vS5mcJYbGU2MAgN6oQHQDqEajAgB+vh3/qau9zmyocTsLRcGmaZPfXwkjb0LXC0gnF3HwgVqs5m27JlApzSYL479P6+PMTEQkdn5sEQ6F5LhenLszoX3tdkgEYdterwfeKjeYGT6fB4eONMLhclJrc5XweCtp4u/UpwDsy729W3Xc6pTRSIQZoMGRpXeGxrQ1B9uORGK1LARDCIYEBoQAi7LZ1Fjv/GMsMfzVwMLnigJJjUb3tp4KiMsK6F6iFBue1Ptiy4Xi4cZqhyQRA7DLgm1/4ACCxx50DY3GZ24NTYWIYG4c3+qUPeMnFIIcicDuCdZ0nmyr+7ilydcTqK4EEyG1WrLm5rRvfrk5dXEkhSUFkFRA7GbsUSiErZp0H/V3hLob+86dajh7qtn90Kav3DdY9iFFgbQ50vb4/zOt/wHHdP9RO0HAEwAAAABJRU5ErkJggg==" class="rubiz-coin" style="width:22px;height:22px;vertical-align:middle"> RUGBIZ</div>
   `;
   container.appendChild(bonusEl);
 
@@ -1146,13 +1146,8 @@ function getNoteLabel(note) {
   return "Espoir";
 }
 
-// Couleur de la note selon le niveau
 function getNoteColor(note) {
-  if (note >= 94) return "#ffd700";      // or — Légende / Meilleur
-  if (note >= 85) return "#05DF72";      // vert — Excellent/Très bon
-  if (note >= 75) return "#00bcd4";      // cyan — Bon
-  if (note >= 65) return "#ff9800";      // orange — Rotation/Remplaçant
-  return "#9e9e9e";                       // gris — Espoir
+  return "linear-gradient(135deg, #ffd700 0%, #b8860b 100%)";
 }
 
 function addCardToCollection(card, locked = false) {
@@ -1641,9 +1636,9 @@ function updateCardDetailControls() {
 
   if (lockedCount > 0 && maxSellable <= 0) {
     // Toutes les cartes sont verrouillées
-    confirmBtn.innerHTML = `Vendre ${currentDetailQty} 🔒 (+0 <span class="rubiz-symbol">R</span>)`;
+    confirmBtn.innerHTML = `Vendre ${currentDetailQty} 🔒 (+0 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAEEklEQVR4nI2US2wbVRSG/zPjR5y4jp1HRR5NSUUDOFVTREmqhqgRLHht6MJRKxAgwaYbkCqxKEKaDhJCCDYsEKqEWMDOLrBoJEAgGpdUgpI0tJAozYM4T8fO2OPEHj9mPPewyLMJoPyre3/pfvecc+85wH+IGcTXFcdOjwBc3+XtS4qiSJvrsKK4ON9/mI1rTduXMW3w9w9760yHX5v84kNt4rPpuZvvlWI33s0v31JHxn+8dAEAiAD+FyjthqmqKr786I3WZ559rD+rLQXTi4twuyWULQumUYCvugqagW9ff//m+cnJlyyQyuvsdW3Vg3kd7s29XNXd3XYtMTUWrPZ7zCd6jjuK+TwVjTz0dIZjE/NlJ/HZT948cYVIfS0cDsnoi9ibHGk7vrBEpIoXnj96yc4m20mGtWKwK6bZUtnbQI66Q1Th9Un+Op8rk7csMo1Xf7jyynN9fRE7HA7J90XIDJKkPvtu/wcBu6BdMHK6OPlkh+PG978hldAwuJzG/EwcB+ur0NP9CKoDRWl5foW9rsq3AfouNBrkXRGGJWbA57efIjNXU1vrZT2epOMdLWgPNqCUnMWxFieOtNajaJaRWzMkkiVaTevdw/0XD5Oqis3HlABgYGCUACCTjHeKksFOmXlVz8DIZqElUmjv6sSZc+fRevpFXI0MwrLKBIIti7JrdmL6BAC0t4/RVsq9K2MMAHpKb/K5SpTLOmFaAlUeCUaesZCSwONx/Bm9Cp9HhmUDpVKZK4ixtKA1AsDoaHIbuKmFRU0OtriRXTNQMm245ApM/RXD3dtTfK+ump8+3WauZV0V8VQOlmXDc8CJTDon72Ssp7xBjy2lk5ZlI53OYm01h7xRREbP4/HOh8lFKPma2+yapmbo6SzyBYsYwOKKkQAADOx45YGNzfh06k7XowHkciWUbUZ8MYX4cgZerxu1gUrPr4NDmJmcZXK5qd4vS5mcJYbGU2MAgN6oQHQDqEajAgB+vh3/qau9zmyocTsLRcGmaZPfXwkjb0LXC0gnF3HwgVqs5m27JlApzSYL479P6+PMTEQkdn5sEQ6F5LhenLszoX3tdkgEYdterwfeKjeYGT6fB4eONMLhclJrc5XweCtp4u/UpwDsy729W3Xc6pTRSIQZoMGRpXeGxrQ1B9uORGK1LARDCIYEBoQAi7LZ1Fjv/GMsMfzVwMLnigJJjUb3tp4KiMsK6F6iFBue1Ptiy4Xi4cZqhyQRA7DLgm1/4ACCxx50DY3GZ24NTYWIYG4c3+qUPeMnFIIcicDuCdZ0nmyr+7ilydcTqK4EEyG1WrLm5rRvfrk5dXEkhSUFkFRA7GbsUSiErZp0H/V3hLob+86dajh7qtn90Kav3DdY9iFFgbQ50vb4/zOt/wHHdP9RO0HAEwAAAABJRU5ErkJggg==" class="rubiz-coin" style="width:22px;height:22px;vertical-align:middle">)`;
   } else {
-    confirmBtn.innerHTML = `Vendre ${currentDetailQty} (+${totalValue} <span class="rubiz-symbol">R</span>)`;
+    confirmBtn.innerHTML = `Vendre ${currentDetailQty} (+${totalValue} <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAEEklEQVR4nI2US2wbVRSG/zPjR5y4jp1HRR5NSUUDOFVTREmqhqgRLHht6MJRKxAgwaYbkCqxKEKaDhJCCDYsEKqEWMDOLrBoJEAgGpdUgpI0tJAozYM4T8fO2OPEHj9mPPewyLMJoPyre3/pfvecc+85wH+IGcTXFcdOjwBc3+XtS4qiSJvrsKK4ON9/mI1rTduXMW3w9w9760yHX5v84kNt4rPpuZvvlWI33s0v31JHxn+8dAEAiAD+FyjthqmqKr786I3WZ559rD+rLQXTi4twuyWULQumUYCvugqagW9ff//m+cnJlyyQyuvsdW3Vg3kd7s29XNXd3XYtMTUWrPZ7zCd6jjuK+TwVjTz0dIZjE/NlJ/HZT948cYVIfS0cDsnoi9ibHGk7vrBEpIoXnj96yc4m20mGtWKwK6bZUtnbQI66Q1Th9Un+Op8rk7csMo1Xf7jyynN9fRE7HA7J90XIDJKkPvtu/wcBu6BdMHK6OPlkh+PG978hldAwuJzG/EwcB+ur0NP9CKoDRWl5foW9rsq3AfouNBrkXRGGJWbA57efIjNXU1vrZT2epOMdLWgPNqCUnMWxFieOtNajaJaRWzMkkiVaTevdw/0XD5Oqis3HlABgYGCUACCTjHeKksFOmXlVz8DIZqElUmjv6sSZc+fRevpFXI0MwrLKBIIti7JrdmL6BAC0t4/RVsq9K2MMAHpKb/K5SpTLOmFaAlUeCUaesZCSwONx/Bm9Cp9HhmUDpVKZK4ixtKA1AsDoaHIbuKmFRU0OtriRXTNQMm245ApM/RXD3dtTfK+ump8+3WauZV0V8VQOlmXDc8CJTDon72Ssp7xBjy2lk5ZlI53OYm01h7xRREbP4/HOh8lFKPma2+yapmbo6SzyBYsYwOKKkQAADOx45YGNzfh06k7XowHkciWUbUZ8MYX4cgZerxu1gUrPr4NDmJmcZXK5qd4vS5mcJYbGU2MAgN6oQHQDqEajAgB+vh3/qau9zmyocTsLRcGmaZPfXwkjb0LXC0gnF3HwgVqs5m27JlApzSYL479P6+PMTEQkdn5sEQ6F5LhenLszoX3tdkgEYdterwfeKjeYGT6fB4eONMLhclJrc5XweCtp4u/UpwDsy729W3Xc6pTRSIQZoMGRpXeGxrQ1B9uORGK1LARDCIYEBoQAi7LZ1Fjv/GMsMfzVwMLnigJJjUb3tp4KiMsK6F6iFBue1Ptiy4Xi4cZqhyQRA7DLgm1/4ACCxx50DY3GZ24NTYWIYG4c3+qUPeMnFIIcicDuCdZ0nmyr+7ilydcTqK4EEyG1WrLm5rRvfrk5dXEkhSUFkFRA7GbsUSiErZp0H/V3hLob+86dajh7qtn90Kav3DdY9iFFgbQ50vb4/zOt/wHHdP9RO0HAEwAAAABJRU5ErkJggg==" class="rubiz-coin" style="width:22px;height:22px;vertical-align:middle">)`;
   }
 }
 
@@ -2676,8 +2671,12 @@ function refreshNotePlayerList(q) {
 function updateNotePreview(note) {
   const el = document.getElementById("note-label-preview");
   if (!el || !note) return;
-  el.textContent = `→ ${getNoteLabel(note)}`;
-  el.style.color = getNoteColor(note);
+  el.textContent = `${note} — ${getNoteLabel(note)}`;
+  el.style.background = getNoteColor(note);
+  el.style.webkitBackgroundClip = "text";
+  el.style.webkitTextFillColor = "transparent";
+  el.style.backgroundClip = "text";
+  el.style.fontWeight = "900";
 }
 setupAuth();
 setupLegalModals();
