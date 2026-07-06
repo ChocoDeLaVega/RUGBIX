@@ -2152,8 +2152,9 @@ async function renderAdmin() {
           </div>
           <div class="admin-row">
             <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
-            <button id="admin-add-player-btn" class="admin-btn">Ajouter</button>
+            <input type="number" id="new-player-note" class="admin-input" min="60" max="99" placeholder="Note (60-99, optionnel)">
           </div>
+          <button id="admin-add-player-btn" class="admin-btn">Ajouter</button>
           <div id="admin-add-player-status" class="admin-status"></div>
           <p class="admin-note">⚠️ Ajout en mémoire uniquement. Modification sauvegardée dans Firestore pour tous les joueurs.</p>
         </div>
@@ -2441,6 +2442,8 @@ function bindAdminEvents() {
     const rarity = document.getElementById("new-player-rarity").value;
     const positions = document.getElementById("new-player-positions").value.split("|").map(p=>p.trim()).filter(Boolean);
     const nat = document.getElementById("new-player-nat").value.trim() || "FRA";
+    const noteInput = parseInt(document.getElementById("new-player-note").value, 10);
+    const customNote = !isNaN(noteInput) && noteInput >= 60 && noteInput <= 99 ? noteInput : null;
     const clubsInput = document.getElementById("new-player-clubs");
     const clubs = (rarity === "legendaire" && clubsInput?.value)
       ? clubsInput.value.split("/").map(c=>c.trim()).filter(Boolean)
@@ -2455,13 +2458,12 @@ function bindAdminEvents() {
 
     st.textContent = "Sauvegarde en cours...";
     try {
-      // Charger les overrides existants
       const doc = await db.collection("playersOverrides").doc("data").get();
       const existing = doc.exists ? doc.data() : { added: [], removed: [] };
       const added = existing.added || [];
       const removed = existing.removed || [];
+      const notes = existing.notes || {};
 
-      // Vérifier pas de doublon
       const newKey = getCardKey(newPlayer);
       if (added.some(p => getCardKey(p) === newKey)) {
         st.textContent = "⚠️ Ce joueur existe déjà dans les ajouts.";
@@ -2469,12 +2471,21 @@ function bindAdminEvents() {
       }
 
       added.push(newPlayer);
-      await savePlayersOverrides(added, removed);
 
-      // Appliquer localement
+      // Sauvegarder la note personnalisée si fournie
+      if (customNote !== null) {
+        notes[newKey] = customNote;
+        noteOverrides[newKey] = customNote;
+      }
+
+      await db.collection("playersOverrides").doc("data").set(
+        { ...existing, added, removed, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+      );
+
       PLAYERS.push(newPlayer);
-      st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}) ajouté pour tous !`;
-      try { await logAdminAction("joueur_ajouté", `${name} — ${TEAMS[team]?.name||team} [${rarity}]`); } catch(_) {}
+      const noteInfo = customNote ? ` — note ${customNote}` : "";
+      st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}${noteInfo}) ajouté pour tous !`;
+      try { await logAdminAction("joueur_ajouté", `${name} — ${TEAMS[team]?.name||team} [${rarity}${noteInfo}]`); } catch(_) {}
     } catch(e) {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
@@ -2484,6 +2495,7 @@ function bindAdminEvents() {
     document.getElementById("new-player-lastname").value = "";
     document.getElementById("new-player-positions").value = "";
     document.getElementById("new-player-nat").value = "";
+    document.getElementById("new-player-note").value = "";
     if (clubsInput) clubsInput.value = "";
   };
 
