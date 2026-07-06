@@ -1699,9 +1699,11 @@ const EQUIPE_SLOTS = [
   { id: "ailier_d",   label: "Ailier",             poste: "Ailier",           num: 14 },
   { id: "arriere",    label: "Arrière",            poste: "Arrière",          num: 15 },
   // Remplaçants
-  { id: "rempl_avants",   label: "Remplaçant\nAvants",   poste: "Avants",           num: 16, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
-  { id: "rempl_demis",    label: "Remplaçant\nDemis",    poste: "Demis",            num: 17, remplacant: true, postes: ["Demi de mêlée","Demi d'ouverture"] },
-  { id: "rempl_arrieres", label: "Remplaçant\nArrières", poste: "Arrières",         num: 18, remplacant: true, postes: ["Centre","Ailier","Arrière"] }
+  { id: "rempl_avants",    label: "Remplaçant\nAvants",    poste: "Avants",    num: 16, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
+  { id: "rempl_avants2",   label: "Remplaçant\nAvants",    poste: "Avants",    num: 19, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
+  { id: "rempl_demis",     label: "Remplaçant\nDemis",     poste: "Demis",     num: 17, remplacant: true, postes: ["Demi de mêlée","Demi d'ouverture"] },
+  { id: "rempl_arrieres",  label: "Remplaçant\nArrières",  poste: "Arrières",  num: 18, remplacant: true, postes: ["Centre","Ailier","Arrière"] },
+  { id: "rempl_arrieres2", label: "Remplaçant\nArrières",  poste: "Arrières",  num: 20, remplacant: true, postes: ["Centre","Ailier","Arrière"] }
 ];
 
 // Rareté order pour compo type
