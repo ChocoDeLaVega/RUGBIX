@@ -208,7 +208,11 @@ async function loadPlayersOverrides() {
       });
     }
 
-    console.log(`✓ Overrides : ${data.added?.length||0} ajouts, ${data.removed?.length||0} suppressions`);
+    // Appliquer les notes personnalisées
+    if (data.notes && typeof data.notes === "object") {
+      noteOverrides = data.notes;
+      console.log(`✓ ${Object.keys(data.notes).length} note(s) personnalisée(s) chargée(s)`);
+    }
 
     // Appliquer les modifications de joueurs existants
     if (data.edited && data.edited.length > 0) {
@@ -1101,6 +1105,48 @@ function getEntry(key) {
   return raw;
 }
 
+// Génère une note déterministe (même note à chaque fois pour le même joueur)
+// Cache des notes modifiées par l'admin (chargé depuis Firestore via loadPlayersOverrides)
+let noteOverrides = {}; // { "name|team": note }
+
+function getPlayerNote(player) {
+  const key = `${player.name}|${player.team}`;
+  // Priorité aux overrides admin
+  if (noteOverrides[key] !== undefined) return noteOverrides[key];
+
+  const rarity = RARITIES[player.rarity];
+  if (!rarity) return 70;
+  const { noteMin, noteMax } = rarity;
+  let hash = 0;
+  const str = player.name + player.team;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) & 0xffff;
+  }
+  return noteMin + (hash % (noteMax - noteMin + 1));
+}
+
+// Retourne le label correspondant à une note
+function getNoteLabel(note) {
+  if (note >= 97) return "Légende";
+  if (note >= 94) return "Meilleur Top 14";
+  if (note >= 90) return "Star";
+  if (note >= 85) return "Excellent";
+  if (note >= 80) return "Très bon";
+  if (note >= 75) return "Bon titulaire";
+  if (note >= 70) return "Rotation";
+  if (note >= 65) return "Remplaçant";
+  return "Espoir";
+}
+
+// Couleur de la note selon le niveau
+function getNoteColor(note) {
+  if (note >= 94) return "#ffd700";      // or — Légende / Meilleur
+  if (note >= 85) return "#05DF72";      // vert — Excellent/Très bon
+  if (note >= 75) return "#00bcd4";      // cyan — Bon
+  if (note >= 65) return "#ff9800";      // orange — Rotation/Remplaçant
+  return "#9e9e9e";                       // gris — Espoir
+}
+
 function addCardToCollection(card, locked = false) {
   const key = getCardKey(card);
   const entry = getEntry(key);
@@ -1436,11 +1482,14 @@ function buildCardElement(player, count = null, options = {}) {
     : team.name;
 
   const isLocked = (options.lockedCount || 0) > 0;
+  const note = getPlayerNote(player);
+  const noteColor = getNoteColor(note);
 
   card.innerHTML = `
     <div class="card-avatar ${avatarClass}" ${avatarStyle}>
       <span class="avatar-initials">${initials}</span>
-      ${isLocked ? `<span class="card-lock-badge" title="Non revendable — XV Démarrage">🔒</span>` : ""}
+      <span class="card-note" style="background:${noteColor}">${note}</span>
+      ${isLocked ? `<span class="card-lock-badge" title="Non revendable">🔒</span>` : ""}
     </div>
     <div class="card-info">
       <p class="card-name">${player.name}</p>
@@ -1757,10 +1806,14 @@ function buildMiniCard(player, slot) {
   const avatarClass = (player.rarity !== "legendaire" && customTeams.includes(player.team))
     ? `avatar-${player.team}` : "";
 
+  const note = getPlayerNote(player);
+  const noteColor = getNoteColor(note);
+
   return `
     <div class="mini-card ${rarityClass}">
       <div class="mini-card-header ${avatarClass}" style="${bgStyle}">
         <span class="mini-num">${slot.num}</span>
+        <span class="mini-note" style="background:${noteColor}">${note}</span>
       </div>
       <div class="mini-card-body">
         <div class="mini-name">${player.name}</div>
@@ -2034,6 +2087,23 @@ async function renderAdmin() {
           <button class="admin-db-tab active" id="admin-tab-add">➕ Ajouter</button>
           <button class="admin-db-tab" id="admin-tab-remove">🗑️ Supprimer</button>
           <button class="admin-db-tab" id="admin-tab-edit">✏️ Modifier</button>
+          <button class="admin-db-tab" id="admin-tab-note">⭐ Notes</button>
+        </div>
+        <!-- Formulaire notes -->
+        <div id="admin-form-note" class="admin-db-form hidden">
+          <input type="text" id="note-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
+          <select id="note-player-select" class="admin-select" size="5" style="height:120px"></select>
+          <div id="note-player-fields" class="hidden">
+            <div class="admin-edit-sep">Modifier la note :</div>
+            <div class="admin-row" style="align-items:center;gap:1rem">
+              <input type="number" id="note-value-input" class="admin-input" min="60" max="99" placeholder="Note (60-99)" style="max-width:140px">
+              <span id="note-label-preview" style="font-size:0.82rem;color:var(--text-muted)"></span>
+            </div>
+            <button id="admin-save-note-btn" class="admin-btn">💾 Sauvegarder pour tous</button>
+            <button id="admin-reset-note-btn" class="admin-btn" style="background:rgba(255,255,255,0.08);color:var(--text-muted);margin-top:0.3rem">🔄 Réinitialiser (note automatique)</button>
+            <div id="admin-note-status" class="admin-status"></div>
+          </div>
+          <p class="admin-note">⚠️ La note s'applique définitivement pour tous les joueurs via Firestore.</p>
         </div>
         <!-- Formulaire modification -->
         <div id="admin-form-edit" class="admin-db-form hidden">
@@ -2323,28 +2393,29 @@ function bindAdminEvents() {
   // Tabs add/remove
   document.getElementById("admin-tab-add").onclick = () => {
     document.getElementById("admin-tab-add").classList.add("active");
-    document.getElementById("admin-tab-remove").classList.remove("active");
-    document.getElementById("admin-tab-edit").classList.remove("active");
+    ["admin-tab-remove","admin-tab-edit","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-add").classList.remove("hidden");
-    document.getElementById("admin-form-remove").classList.add("hidden");
-    document.getElementById("admin-form-edit").classList.add("hidden");
+    ["admin-form-remove","admin-form-edit","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
   };
   document.getElementById("admin-tab-remove").onclick = () => {
     document.getElementById("admin-tab-remove").classList.add("active");
-    document.getElementById("admin-tab-add").classList.remove("active");
-    document.getElementById("admin-tab-edit").classList.remove("active");
+    ["admin-tab-add","admin-tab-edit","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-remove").classList.remove("hidden");
-    document.getElementById("admin-form-add").classList.add("hidden");
-    document.getElementById("admin-form-edit").classList.add("hidden");
+    ["admin-form-add","admin-form-edit","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
   };
   document.getElementById("admin-tab-edit").onclick = () => {
     document.getElementById("admin-tab-edit").classList.add("active");
-    document.getElementById("admin-tab-add").classList.remove("active");
-    document.getElementById("admin-tab-remove").classList.remove("active");
+    ["admin-tab-add","admin-tab-remove","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-edit").classList.remove("hidden");
-    document.getElementById("admin-form-add").classList.add("hidden");
-    document.getElementById("admin-form-remove").classList.add("hidden");
+    ["admin-form-add","admin-form-remove","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
     refreshEditPlayerList("");
+  };
+  document.getElementById("admin-tab-note").onclick = () => {
+    document.getElementById("admin-tab-note").classList.add("active");
+    ["admin-tab-add","admin-tab-remove","admin-tab-edit"].forEach(id => document.getElementById(id).classList.remove("active"));
+    document.getElementById("admin-form-note").classList.remove("hidden");
+    ["admin-form-add","admin-form-remove","admin-form-edit"].forEach(id => document.getElementById(id).classList.add("hidden"));
+    refreshNotePlayerList("");
   };
 
   // Afficher champ clubs si rareté = legendaire
@@ -2508,11 +2579,84 @@ function bindAdminEvents() {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
   };
+
+  // === Notes joueurs ===
+  document.getElementById("note-player-search").oninput = (e) => refreshNotePlayerList(e.target.value);
+
+  document.getElementById("note-player-select").onchange = () => {
+    const key = document.getElementById("note-player-select").value;
+    if (!key) { document.getElementById("note-player-fields").classList.add("hidden"); return; }
+    const player = PLAYERS.find(p => `${p.name}|${p.team}` === key);
+    if (!player) return;
+    const currentNote = getPlayerNote(player);
+    document.getElementById("note-value-input").value = currentNote;
+    updateNotePreview(currentNote);
+    document.getElementById("note-player-fields").classList.remove("hidden");
+    document.getElementById("admin-note-status").textContent = "";
+  };
+
+  document.getElementById("note-value-input").oninput = (e) => {
+    updateNotePreview(parseInt(e.target.value, 10) || 0);
+  };
+
+  document.getElementById("admin-save-note-btn").onclick = async () => {
+    const key = document.getElementById("note-player-select").value;
+    const note = parseInt(document.getElementById("note-value-input").value, 10);
+    const st = document.getElementById("admin-note-status");
+    if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    if (!note || note < 60 || note > 99) { st.textContent = "⚠️ Note entre 60 et 99."; return; }
+    st.textContent = "Sauvegarde...";
+    try {
+      const doc = await db.collection("playersOverrides").doc("data").get();
+      const existing = doc.exists ? doc.data() : {};
+      const notes = existing.notes || {};
+      notes[key] = note;
+      await db.collection("playersOverrides").doc("data").set({ ...existing, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      noteOverrides[key] = note;
+      const playerName = key.split("|")[0];
+      st.textContent = `✓ ${playerName} → note ${note} (${getNoteLabel(note)}) pour tous !`;
+      try { await logAdminAction("note", `${playerName} → ${note} (${getNoteLabel(note)})`); } catch(_) {}
+    } catch(e) { st.textContent = `❌ ${e.message}`; }
+  };
+
+  document.getElementById("admin-reset-note-btn").onclick = async () => {
+    const key = document.getElementById("note-player-select").value;
+    const st = document.getElementById("admin-note-status");
+    if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
+    st.textContent = "Réinitialisation...";
+    try {
+      const doc = await db.collection("playersOverrides").doc("data").get();
+      const existing = doc.exists ? doc.data() : {};
+      const notes = existing.notes || {};
+      delete notes[key];
+      await db.collection("playersOverrides").doc("data").set({ ...existing, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      delete noteOverrides[key];
+      const playerName = key.split("|")[0];
+      st.textContent = `✓ ${playerName} → note automatique restaurée.`;
+    } catch(e) { st.textContent = `❌ ${e.message}`; }
+  };
 }
 
-// ---------------------------------------------------------
-// LANCEMENT
-// ---------------------------------------------------------
+function refreshNotePlayerList(q) {
+  const sel = document.getElementById("note-player-select");
+  if (!sel) return;
+  const filtered = PLAYERS.filter(p =>
+    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
+    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
+  ).slice(0, 60);
+  sel.innerHTML = filtered.map(p => {
+    const note = getPlayerNote(p);
+    return `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${note}]</option>`;
+  }).join("");
+  document.getElementById("note-player-fields").classList.add("hidden");
+}
+
+function updateNotePreview(note) {
+  const el = document.getElementById("note-label-preview");
+  if (!el || !note) return;
+  el.textContent = `→ ${getNoteLabel(note)}`;
+  el.style.color = getNoteColor(note);
+}
 setupAuth();
 setupLegalModals();
 
