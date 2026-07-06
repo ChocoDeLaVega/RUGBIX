@@ -1,11 +1,6 @@
 // =========================================================
 // RUGBIX — BASE DE DONNÉES
-// Les joueurs sont chargés depuis Google Sheets au démarrage.
-// TEAMS, RARITIES et PACKS restent définis ici.
 // =========================================================
-
-// URL CSV du Google Sheet (doit être publié : Fichier → Partager → Publier sur le web → CSV)
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1nYO8sQI0LV_0KaqU2hSo478yJTxlJGD-wFX6vHe1Ipg/pub?gid=0&single=true&output=csv";
 
 const TEAMS = {
   
@@ -224,7 +219,6 @@ const PLAYERS = [
 { name: "Simon Bourgeois", team: "vannes", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
 { name: "Hugo Djehi", team: "vannes", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
 { name: "Thomas Duchene", team: "vannes", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
-{ name: "Sione Mafileo", team: "vannes", positions: ["Pilier"], rarity: "commune", nat: "NZL" },
 { name: "Santiago Medrano", team: "vannes", positions: ["Pilier"], rarity: "rare", nat: "ARG" },
 { name: "Nick Schonert", team: "vannes", positions: ["Pilier"], rarity: "commune", nat: "AFS" },
 { name: "Théo Béziat", team: "vannes", positions: ["Talonneur"], rarity: "commune", nat: "FRA" },
@@ -234,10 +228,8 @@ const PLAYERS = [
 { name: "Thomas Geffré", team: "vannes", positions: ["Deuxième ligne"], rarity: "commune", nat: "FRA" },
 { name: "Eric Marks", team: "vannes", positions: ["Deuxième ligne"], rarity: "commune", nat: "ALL" },
 { name: "Timothé Mézou", team: "vannes", positions: ["Deuxième ligne"], rarity: "commune", nat: "FRA" },
-{ name: "Thomas Ployet", team: "vannes", positions: ["Deuxième ligne"], rarity: "commune", nat: "FRA" },
 { name: "Matias Alemanno", team: "vannes", positions: ["Deuxième ligne"], rarity: "rare", nat: "ARG" },
 { name: "Simon Augry", team: "vannes", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
-{ name: "Ioane Iashagashvili ", team: "vannes", positions: ["Troisième ligne"], rarity: "commune", nat: "GEO" },
 { name: "Steeve Blanc-Mappaz", team: "vannes", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
 { name: "Léon Boulier", team: "vannes", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
 { name: "Joseph Edwards", team: "vannes", positions: ["Troisième ligne"], rarity: "rare", nat: "NZL" },
@@ -255,14 +247,11 @@ const PLAYERS = [
 { name: "Eliott Roudil", team: "vannes", positions: ["Centre"], rarity: "commune", nat: "FRA" },
 { name: "Pierre Boudehent", team: "vannes", positions: ["Centre"], rarity: "commune", nat: "FRA" },
 { name: "Marin Boulier", team: "vannes", positions: ["Centre"], rarity: "commune", nat: "FRA" },
-{ name: "Ray Nu'u", team: "vannes", positions: ["Centre"], rarity: "commune", nat: "NZL" },
-{ name: "Inia Tabuavou", team: "vannes", positions: ["Centre"], rarity: "commune", nat: "FIJ" },
 { name: "Francis Saili", team: "vannes", positions: ["Centre", "Ailier"], rarity: "rare", nat: "NZL" },
 { name: "Enzo Benmegal", team: "vannes", positions: ["Ailier"], rarity: "commune", nat: "FRA" },
 { name: "Romaric Camou", team: "vannes", positions: ["Ailier"], rarity: "commune", nat: "FRA" },
 { name: "Ben Stevenson", team: "vannes", positions: ["Ailier"], rarity: "commune", nat: "ANG" },
 { name: "Paul Surano", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "FRA" },
-{ name: "Joe Jonas", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "AFS" },
 { name: "Anthony Bouthier", team: "vannes", positions: ["Arrière"], rarity: "epique", nat: "FRA" },
 
   // ----- MONTPELLIER -----
@@ -728,11 +717,11 @@ const LEGENDS = [
 PLAYERS.push(...LEGENDS);
 
 const RARITIES = {
-  commune:    { label: "Commune",    color: "#9e9e9e", weight: 60, sellValue: 5 },
-  rare:       { label: "Rare",       color: "#05DF72", weight: 27, sellValue: 10 },
-  epique:     { label: "Épique",     color: "#9c27b0", weight: 10, sellValue: 25 },
-  legendaire: { label: "Légende",    color: "#ffd700", weight: 0,  sellValue: 150 },
-  international: { label: "International", color: "#1a1a2e", weight: 3, sellValue: 60 }
+  commune:       { label: "Commune",       color: "#9e9e9e", weight: 60, sellValue: 5,   noteMin: 60, noteMax: 79 },
+  rare:          { label: "Rare",          color: "#05DF72", weight: 27, sellValue: 10,  noteMin: 80, noteMax: 89 },
+  epique:        { label: "Épique",        color: "#9c27b0", weight: 10, sellValue: 25,  noteMin: 90, noteMax: 93 },
+  international: { label: "International", color: "#1a1a2e", weight: 3,  sellValue: 60,  noteMin: 94, noteMax: 96 },
+  legendaire:    { label: "Légende",       color: "#ffd700", weight: 0,  sellValue: 150, noteMin: 97, noteMax: 99 }
 };
 
 const PACKS = [
