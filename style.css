@@ -2520,3 +2520,211 @@ textarea.contact-input {
   margin-right: auto;
   filter: drop-shadow(0 4px 12px rgba(255,209,0,0.3));
 }
+
+/* =========================================================
+   RESPONSIVE MOBILE (max-width: 768px)
+   ========================================================= */
+@media (max-width: 768px) {
+
+  /* ── Layout général ── */
+  html, body { overflow: auto; }
+
+  .game-client {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .game-header {
+    height: auto;
+    min-height: 56px;
+    padding: 0.5rem 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .logo { height: 44px; }
+
+  .auth-logo-img { height: 70px; }
+
+  .coins {
+    font-size: 0.82rem;
+    gap: 0.3rem;
+  }
+
+  .coins button { font-size: 0.68rem; padding: 0.2rem 0.5rem; }
+
+  .header-user { gap: 0.4rem; }
+  .header-username { font-size: 0.72rem; }
+
+  /* ── Layout : sidebar passe en bas (nav bar) ── */
+  .game-body {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .game-sidebar {
+    width: 100%;
+    flex-direction: row;
+    padding: 0.4rem 0.5rem;
+    gap: 0.3rem;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+    order: 2; /* sidebar sous le contenu */
+  }
+
+  .nav-btn {
+    flex-shrink: 0;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.7rem;
+    border-radius: 8px;
+    white-space: nowrap;
+    border-left: none !important;
+    padding-left: 0.8rem !important;
+    border-bottom: 3px solid transparent;
+  }
+
+  .nav-btn:hover,
+  .nav-btn.active {
+    border-left: none !important;
+    border-bottom: 3px solid var(--gold);
+    padding-left: 0.8rem !important;
+  }
+
+  .game-content {
+    padding: 16px 12px;
+    order: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 130px);
+  }
+
+  /* ── Footer ── */
+  .game-footer { font-size: 0.6rem; gap: 0.5rem; height: auto; padding: 0.4rem; flex-wrap: wrap; }
+  .auth-footer { font-size: 0.6rem; gap: 0.5rem; flex-wrap: wrap; padding: 0.4rem; }
+
+  /* ── Section titles ── */
+  .section-title { font-size: 1.5rem; }
+
+  /* ── Grille cartes ── */
+  .cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.6rem;
+  }
+
+  /* ── Packs ── */
+  .packs-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+  }
+
+  .pack-card { padding: 1rem 0.8rem; }
+  .pack-icon { font-size: 2rem; }
+
+  /* ── Sort controls ── */
+  .sort-controls {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .sort-controls label { font-size: 0.72rem; }
+
+  #sort-select, #position-filter-select,
+  #club-filter-select, #poste-filter-select,
+  #album-sort-select, #album-position-filter-select,
+  #album-club-filter-select, #album-poste-filter-select {
+    font-size: 0.75rem;
+    padding: 0.35rem 1.6rem 0.35rem 0.6rem;
+  }
+
+  /* ── Modales ── */
+  .modal { padding: 0.5rem; align-items: flex-start; overflow-y: auto; }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh;
+    overflow-y: auto;
+    border-radius: 12px;
+    padding: 1.2rem 1rem;
+    margin: auto;
+  }
+
+  .card-detail-content { width: 100% !important; }
+
+  .gift-modal-content { width: 100% !important; max-width: 100% !important; }
+
+  /* ── Modale ouverture packs ── */
+  .reveal-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 0.5rem;
+  }
+
+  /* ── Terrain Mon Équipe ── */
+  .equipe-wrapper {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .pitch {
+    min-width: unset;
+    width: 100%;
+    padding: 0.8rem 0.4rem;
+  }
+
+  .pitch-row { gap: 0.3rem; flex-wrap: wrap; justify-content: center; }
+
+  .pitch-slot { width: 90px; min-height: 78px; }
+
+  .mini-card { width: 90px; }
+
+  .remplacants-panel {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+    align-self: auto;
+    flex-wrap: wrap;
+    padding: 0.7rem;
+  }
+
+  .remplacant-slot { width: 90px !important; }
+
+  /* ── Player select modal ── */
+  .player-select-content { padding: 1rem 0.8rem; }
+  .player-select-list { max-height: 50vh; }
+
+  /* ── Auth screen ── */
+  .auth-box {
+    padding: 1.5rem 1.2rem;
+    margin: 0.5rem;
+  }
+
+  .auth-title { font-size: 2.2rem; }
+
+  /* ── Admin ── */
+  .admin-grid { grid-template-columns: 1fr; }
+  .admin-card-full { grid-column: 1; }
+  .admin-user-row { grid-template-columns: 1fr auto auto; gap: 0.5rem; font-size: 0.72rem; }
+  .admin-user-email { display: none; }
+  .admin-db-tabs { flex-wrap: wrap; }
+
+  /* ── Sell controls ── */
+  .sell-controls { flex-direction: column; gap: 0.6rem; }
+
+  /* ── Cadeau ── */
+  .gift-cards-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+
+  /* ── Boutons équipe ── */
+  .equipe-actions { gap: 0.4rem; }
+  .compo-type-btn, .reset-equipe-btn { padding: 0.45rem 0.8rem; font-size: 0.78rem; }
+
+}
+
+/* Extra small (iPhone SE etc.) */
+@media (max-width: 390px) {
+  .packs-grid { grid-template-columns: 1fr; }
+  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); }
+  .pitch-slot { width: 78px; min-height: 68px; }
+  .mini-card { width: 78px; }
+}
