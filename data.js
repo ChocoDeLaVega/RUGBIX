@@ -672,7 +672,7 @@ const LEGENDS = [
   { name: "Vincent Clerc", team: "toulouse", clubs: ["toulouse"], positions: ["Ailier"], rarity: "legendaire", nat: "FRA" },
   { name: "Maxime Médard", team: "toulouse", clubs: ["toulouse"], positions: ["Arrière"], rarity: "legendaire", nat: "FRA" },
   { name: "Brice Dulin", team: "lapelle", clubs: ["castres", "racing92", "lapelle"], positions: ["Arrière"], rarity: "legendaire", nat: "FRA" },
-  { name: "Nans Ducuing", team: "ubb", clubs: ["ubb"], positions: ["Arrière", "Ailier"], rarity: "legendaire", nat: "FRA" },
+  { name: "Cheslin Kolbe", team: "toulouse", clubs: ["toulouse","toulon"], positions: ["Ailier","Arrière",], rarity: "legendaire", nat: "AFS" },
   { name: "Owen Farrell", team: "racing92", clubs: ["racing92"], positions: ["Demi d'ouverture", "Centre"], rarity: "legendaire", nat: "ANG" },
   { name: "Siya Kolisi", team: "racing92", clubs: ["racing92"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "AFS" },
   { name: "Pita Ahki", team: "toulouse", clubs: ["toulouse"], positions: ["Centre"], rarity: "legendaire", nat: "NZL" },
@@ -711,17 +711,20 @@ const LEGENDS = [
   { name: "Joe Rokocoko", team: "bayonne", clubs: ["bayonne","racing92"], positions: ["Ailier"], rarity: "legendaire", nat: "NZL" },
   { name: "Scott Spedding", team: "clermont", clubs: ["bayonne","clermont"], positions: ["Arrière"], rarity: "legendaire", nat: "FRA" },
   { name: "Dimitri Szarzewski", team: "stadefr", clubs: ["stadefr","racing92"], positions: ["Talonneur"], rarity: "legendaire", nat: "FRA" },
+  { name: "Census Jonsthon", team: "toulouse", clubs: ["toulouse"], positions: ["Pilier"], rarity: "legendaire", nat: "SAM" },
+  { name: "Juan Martin Fernandez Lobbe", team: "toulon", clubs: ["toulon"], positions: ["Troisième ligne"], rarity: "legendaire", nat: "ARG" },
+  { name: "Tana Umaga", team: "toulon", clubs: ["toulon"], positions: ["Centre"], rarity: "legendaire", nat: "NZL" },
 	
 ];
 
 PLAYERS.push(...LEGENDS);
 
 const RARITIES = {
-  commune:       { label: "Commune",       color: "#9e9e9e", weight: 60, sellValue: 5,   noteMin: 60, noteMax: 79 },
-  rare:          { label: "Rare",          color: "#05DF72", weight: 27, sellValue: 10,  noteMin: 80, noteMax: 89 },
-  epique:        { label: "Épique",        color: "#9c27b0", weight: 10, sellValue: 25,  noteMin: 90, noteMax: 93 },
-  international: { label: "International", color: "#1a1a2e", weight: 3,  sellValue: 60,  noteMin: 94, noteMax: 96 },
-  legendaire:    { label: "Légende",       color: "#ffd700", weight: 0,  sellValue: 150, noteMin: 97, noteMax: 99 }
+  commune:       { label: "Commune",       color: "#9e9e9e", weight: 60, sellValue: 5,   noteMin: 50, noteMax: 69 },
+  rare:          { label: "Rare",          color: "#05DF72", weight: 27, sellValue: 10,  noteMin: 70, noteMax: 80 },
+  epique:        { label: "Épique",        color: "#9c27b0", weight: 10, sellValue: 25,  noteMin: 80, noteMax: 89 },
+  international: { label: "International", color: "#1a1a2e", weight: 3,  sellValue: 60,  noteMin: 90, noteMax: 96 },
+  legendaire:    { label: "Légende",       color: "#ffd700", weight: 0,  sellValue: 150, noteMin: 90, noteMax: 99 }
 };
 
 const PACKS = [
