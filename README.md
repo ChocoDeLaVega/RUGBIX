@@ -1,2 +1,2 @@
 # RUGBIX
-Jeu de carte rugby
+Jeu de pack oppening et match rugby
