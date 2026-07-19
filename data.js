@@ -126,6 +126,7 @@ const PLAYERS = [
 
   // ----- USA PERPIGNAN -----
   { name: "Enzo Forletta", team: "perpignan", positions: ["Pilier"], rarity: "rare", nat: "FRA" },
+  { name: "Brad Amituanai", team: "perpignan", positions: ["Pilier"], rarity: "rare", nat: "AUS" },
   { name: "Posolo Tuilagi", team: "perpignan", positions: ["Deuxième ligne"], rarity: "rare", nat: "FRA" },
   { name: "Tom Ecochard", team: "perpignan", positions: ["Demi de mêlée"], rarity: "rare", nat: "FRA" },
   { name: "Antoine Aucagne", team: "perpignan", positions: ["Demi d'ouverture","Arrière"], rarity: "rare", nat: "FRA" },
@@ -347,8 +348,9 @@ const PLAYERS = [
 
   // ----- STADE ROCHELAIS -----
   { name: "Louis Penverne", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
+  { name: "Sione Ahio", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "NZL" },
   { name: "Nathan Fraissenon", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
-   { name: "Alexandre Kaddouri", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
+  { name: "Alexandre Kaddouri", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
   { name: "Aleksandre Kuntelia", team: "lapelle", positions: ["Pilier"], rarity: "rare", nat: "GEO" },
   { name: "Karl Sorin", team: "lapelle", positions: ["Pilier"], rarity: "commune", nat: "FRA" },
   { name: "Pierre Bourgarit", team: "lapelle", positions: ["Talonneur"], rarity: "rare", nat: "FRA" },
@@ -409,6 +411,7 @@ const PLAYERS = [
   { name: "Seru Uru", team: "racing92", positions: ["Troisième ligne"], rarity: "rare", nat: "FIJ" },
   { name: "Thomas Lainault", team: "racing92", positions: ["Deuxième ligne"], rarity: "commune", nat: "FRA" },
   { name: "Soumaila Camara", team: "racing92", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
+  { name: "Nicolas Martins", team: "racing92", positions: ["Troisième ligne"], rarity: "commune", nat: "FRA" },
   { name: "Shingi Manyarara", team: "racing92", positions: ["Trosième ligne"], rarity: "rare", nat: "ZIM" },
   { name: "Lekima Tagitagivalu", team: "racing92", positions: ["Deuxième ligne","Trosième ligne"], rarity: "commune", nat: "FIJ" },
   { name: "Jordan Joseph", team: "racing92", positions: ["Troisième ligne"], rarity: "rare", nat: "FRA" },
@@ -478,7 +481,7 @@ const PLAYERS = [
   { name: "AJ Lam", team: "clermont", positions: ["Centre"], rarity: "rare", nat: "NZL" },
   { name: "Sébastien Bézy", team: "montpellier", positions: ["Demi de mêlée"], rarity: "epique", nat: "FRA" },
   { name: "Peceli Yato", team: "perpignan", positions: ["Troisième ligne", "Deuxième ligne"], rarity: "rare", nat: "FIJ" },
-  { name: "George Moala", team: "clermont", positions: ["Centre"], rarity: "rare", nat: "TGA" },
+  { name: "George Moala", team: "lapelle", positions: ["Centre"], rarity: "rare", nat: "TGA" },
   { name: "Joris Jurand", team: "clermont", positions: ["Ailier", "Arrière"], rarity: "commune", nat: "FRA" },
   { name: "Thibaud Lanen", team: "clermont", positions: ["Deuxième ligne"], rarity: "commune", nat: "FRA" },
   { name: "Selevasio Tolofua", team: "clermont", positions: ["Troisième ligne"], rarity: "rare", nat: "FRA" },
@@ -604,6 +607,7 @@ const PLAYERS = [
   { name: "Vuate Karawalevu ", team: "castres", positions: ["Ailier"], rarity: "commune", nat: "FIJ" },
   { name: "Théo Chabouni", team: "castres", positions: ["Arrière"], rarity: "rare", nat: "FRA" },
   { name: "Dalton Papali'i", team: "castres", positions: ["Troisième ligne"], rarity: "international", nat: "NZL" },
+  { name: "Hamish Watson", team: "castres", positions: ["Troisième ligne"], rarity: "epique", nat: "ECO" },
 
   // ----- STADE FRANÇAIS -----
   { name: "Paul Alo-Emile", team: "stadefr", positions: ["Pilier"], rarity: "rare", nat: "SAM" },
@@ -650,8 +654,8 @@ const PLAYERS = [
   { name: "Thierry Paiva", team: "stadefr", positions: ["Pilier"], rarity: "rare", nat: "FRA" },
   { name: "Jacques Botha", team: "stadefr", positions: ["Deuxième ligne"], rarity: "commune", nat: "AFS" },
   { name: "Setareki Turagacoke", team: "stadefr", positions: ["Deuxième ligne"], rarity: "commune", nat: "FIJ" },
-  { name: "Rufus Mclean", team: "stadefr", positions: ["Ailier"], rarity: "commune", nat: "USA" },
-  { name: "Tomasi Maka", team: "stadefr", positions: ["Talonneur"], rarity: "commune", nat: "NZL" },
+  { name: "Rufus Mclean", team: "stadefr", positions: ["Ailier"], rarity: "rare", nat: "USA" },
+  { name: "Tomasi Maka", team: "stadefr", positions: ["Talonneur"], rarity: "rare", nat: "NZL" },
   
     
 ];
