@@ -1471,11 +1471,11 @@ function buildCardElement(player, count = null, options = {}) {
     .slice(0, 2)
     .toUpperCase();
 
-  const customTeams = ["toulouse", "montpellier", "racing92", "lapelle", "clermont", "ubb", "bayonne", "perpignan", "montauban"];
-  // Les légendes ont le design médaillon (pas de couleur club) ; les international gardent la couleur club
-  const isCustom = player.rarity !== "legendaire" && customTeams.includes(player.team);
+  const customTeams = ["toulouse", "montpellier", "racing92", "lapelle", "clermont", "ubb", "bayonne", "perpignan", "montauban", "pau", "castres", "toulon", "stadefr", "lyon", "vannes"];
+  // Les légendes gardent la couleur de leur club sur l'avatar (liseré doré géré par .card.legendaire)
+  const isCustom = customTeams.includes(player.team);
   const avatarClass = isCustom ? `avatar-${player.team}` : "";
-  const avatarStyle = isCustom ? "" : `style="background:${team.color}"`;
+  const avatarStyle = isCustom ? "" : `style="background:${team?.color || '#333'}"`;
 
   const positionText = (player.positions || []).join(" / ");
   const natCode = (player.nat || "FRA").toUpperCase().trim();
@@ -1798,18 +1798,15 @@ function buildMiniCard(player, slot) {
   const posText = (player.positions || []).join(" / ");
   const rarityClass = player.rarity;
 
-  // Couleur de fond du mini-header
+  // Couleur de fond du mini-header — les légendes gardent la couleur du club
   let bgStyle = "";
-  const customTeams = ["toulouse","montpellier","racing92","lapelle","clermont","ubb","bayonne","perpignan","montauban"];
-  if (player.rarity === "legendaire") {
-    bgStyle = "background: radial-gradient(circle at 50% 35%, #fff7d6 0%, #d4af37 35%, #9a9a9a 65%, #c0c0c0 85%, #707070 100%);";
-  } else if (customTeams.includes(player.team)) {
+  const customTeams = ["toulouse","montpellier","racing92","lapelle","clermont","ubb","bayonne","perpignan","montauban","pau","castres","toulon","stadefr","lyon","vannes"];
+  if (customTeams.includes(player.team)) {
     bgStyle = ""; // handled by CSS class
   } else {
-    bgStyle = `background: ${team.color};`;
+    bgStyle = `background: ${team?.color || '#333'};`;
   }
-  const avatarClass = (player.rarity !== "legendaire" && customTeams.includes(player.team))
-    ? `avatar-${player.team}` : "";
+  const avatarClass = customTeams.includes(player.team) ? `avatar-${player.team}` : "";
 
   const note = getPlayerNote(player);
   const noteColor = getNoteColor(note);
@@ -2080,7 +2077,7 @@ async function renderAdmin() {
         <div class="admin-form">
           <select id="admin-send-card-user" class="admin-select"><option value="">-- Joueur --</option>${userOptions}</select>
           <input type="text" id="admin-card-search" class="admin-input" placeholder="🔍 Rechercher (ex: Dupont)">
-          <select id="admin-card-select" class="admin-select" size="5" style="height:110px"></select>
+          <select id="admin-card-select" class="admin-select" size="8" style="height:200px"></select>
           <button id="admin-send-card-btn" class="admin-btn">Envoyer la carte</button>
           <div id="admin-card-status" class="admin-status"></div>
         </div>
@@ -2094,10 +2091,21 @@ async function renderAdmin() {
           <button class="admin-db-tab" id="admin-tab-edit">✏️ Modifier</button>
           <button class="admin-db-tab" id="admin-tab-note">⭐ Notes</button>
         </div>
+        <!-- Filtres communs aux onglets Supprimer / Modifier / Notes -->
+        <div id="admin-db-filters" class="admin-db-filters hidden">
+          <select id="admin-filter-club" class="admin-select">
+            <option value="all">Tous les clubs</option>
+            ${Object.entries(TEAMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("")}
+          </select>
+          <select id="admin-filter-rarity" class="admin-select">
+            <option value="all">Toutes les raretés</option>
+            ${Object.entries(RARITIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}
+          </select>
+        </div>
         <!-- Formulaire notes -->
         <div id="admin-form-note" class="admin-db-form hidden">
           <input type="text" id="note-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
-          <select id="note-player-select" class="admin-select" size="5" style="height:120px"></select>
+          <select id="note-player-select" class="admin-select" size="8" style="height:200px"></select>
           <div id="note-player-fields" class="hidden">
             <div class="admin-edit-sep">Modifier la note :</div>
             <div class="admin-row" style="align-items:center;gap:1rem">
@@ -2113,7 +2121,7 @@ async function renderAdmin() {
         <!-- Formulaire modification -->
         <div id="admin-form-edit" class="admin-db-form hidden">
           <input type="text" id="edit-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur à modifier">
-          <select id="edit-player-select" class="admin-select" size="5" style="height:120px"></select>
+          <select id="edit-player-select" class="admin-select" size="8" style="height:200px"></select>
           <div id="edit-player-fields" class="hidden">
             <div class="admin-edit-sep">Modifier les champs :</div>
             <div class="admin-row">
@@ -2157,7 +2165,7 @@ async function renderAdmin() {
         </div>
         <div id="admin-form-remove" class="admin-db-form hidden">
           <input type="text" id="remove-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
-          <select id="remove-player-select" class="admin-select" size="6" style="height:140px"></select>
+          <select id="remove-player-select" class="admin-select" size="8" style="height:200px"></select>
           <button id="admin-remove-player-btn" class="admin-btn" style="background:#cc0000;color:#fff">Supprimer</button>
           <div id="admin-remove-player-status" class="admin-status"></div>
           <p class="admin-note">⚠️ Suppression en mémoire uniquement. Suppression sauvegardée dans Firestore pour tous les joueurs.</p>
@@ -2220,13 +2228,29 @@ function refreshAdminCardList(q) {
   ).join("");
 }
 
+// Récupère les filtres actifs dans l'admin DB
+function getAdminFilters() {
+  const club = document.getElementById("admin-filter-club")?.value || "all";
+  const rarity = document.getElementById("admin-filter-rarity")?.value || "all";
+  return { club, rarity };
+}
+
+// Filtre un tableau de joueurs selon les filtres admin + recherche texte
+function applyAdminFilters(players, q) {
+  const { club, rarity } = getAdminFilters();
+  return players.filter(p => {
+    if (club !== "all" && p.team !== club) return false;
+    if (rarity !== "all" && p.rarity !== rarity) return false;
+    if (q && !p.name.toLowerCase().includes(q.toLowerCase()) &&
+        !(TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  }).slice(0, 100);
+}
+
 function refreshRemovePlayerList(q) {
   const sel = document.getElementById("remove-player-select");
   if (!sel) return;
-  const filtered = PLAYERS.filter(p =>
-    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
-    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
-  ).slice(0, 60);
+  const filtered = applyAdminFilters(PLAYERS, q || "");
   sel.innerHTML = filtered.map(p =>
     `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
   ).join("");
@@ -2235,10 +2259,7 @@ function refreshRemovePlayerList(q) {
 function refreshEditPlayerList(q) {
   const sel = document.getElementById("edit-player-select");
   if (!sel) return;
-  const filtered = PLAYERS.filter(p =>
-    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
-    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
-  ).slice(0, 60);
+  const filtered = applyAdminFilters(PLAYERS, q || "");
   sel.innerHTML = filtered.map(p =>
     `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
   ).join("");
@@ -2402,18 +2423,22 @@ function bindAdminEvents() {
     ["admin-tab-remove","admin-tab-edit","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-add").classList.remove("hidden");
     ["admin-form-remove","admin-form-edit","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
+    document.getElementById("admin-db-filters").classList.add("hidden");
   };
   document.getElementById("admin-tab-remove").onclick = () => {
     document.getElementById("admin-tab-remove").classList.add("active");
     ["admin-tab-add","admin-tab-edit","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-remove").classList.remove("hidden");
     ["admin-form-add","admin-form-edit","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
+    document.getElementById("admin-db-filters").classList.remove("hidden");
+    refreshRemovePlayerList("");
   };
   document.getElementById("admin-tab-edit").onclick = () => {
     document.getElementById("admin-tab-edit").classList.add("active");
     ["admin-tab-add","admin-tab-remove","admin-tab-note"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-edit").classList.remove("hidden");
     ["admin-form-add","admin-form-remove","admin-form-note"].forEach(id => document.getElementById(id).classList.add("hidden"));
+    document.getElementById("admin-db-filters").classList.remove("hidden");
     refreshEditPlayerList("");
   };
   document.getElementById("admin-tab-note").onclick = () => {
@@ -2421,8 +2446,22 @@ function bindAdminEvents() {
     ["admin-tab-add","admin-tab-remove","admin-tab-edit"].forEach(id => document.getElementById(id).classList.remove("active"));
     document.getElementById("admin-form-note").classList.remove("hidden");
     ["admin-form-add","admin-form-remove","admin-form-edit"].forEach(id => document.getElementById(id).classList.add("hidden"));
+    document.getElementById("admin-db-filters").classList.remove("hidden");
     refreshNotePlayerList("");
   };
+
+  // Filtres club + rareté — rafraîchit la liste active
+  const refreshActiveList = () => {
+    if (!document.getElementById("admin-form-remove").classList.contains("hidden")) {
+      refreshRemovePlayerList(document.getElementById("remove-player-search")?.value || "");
+    } else if (!document.getElementById("admin-form-edit").classList.contains("hidden")) {
+      refreshEditPlayerList(document.getElementById("edit-player-search")?.value || "");
+    } else if (!document.getElementById("admin-form-note").classList.contains("hidden")) {
+      refreshNotePlayerList(document.getElementById("note-player-search")?.value || "");
+    }
+  };
+  document.getElementById("admin-filter-club").addEventListener("change", refreshActiveList);
+  document.getElementById("admin-filter-rarity").addEventListener("change", refreshActiveList);
 
   // Afficher champ clubs si rareté = legendaire
   document.getElementById("new-player-rarity").onchange = (e) => {
@@ -2657,10 +2696,7 @@ function bindAdminEvents() {
 function refreshNotePlayerList(q) {
   const sel = document.getElementById("note-player-select");
   if (!sel) return;
-  const filtered = PLAYERS.filter(p =>
-    !q || p.name.toLowerCase().includes(q.toLowerCase()) ||
-    (TEAMS[p.team]?.name||"").toLowerCase().includes(q.toLowerCase())
-  ).slice(0, 60);
+  const filtered = applyAdminFilters(PLAYERS, q || "");
   sel.innerHTML = filtered.map(p => {
     const note = getPlayerNote(p);
     return `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${note}]</option>`;
