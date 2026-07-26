@@ -1042,6 +1042,46 @@ html, body {
 }
 .reset-equipe-btn:hover { background: #ddd; }
 
+/* ===== SÉLECTEUR TYPE DE BANC ===== */
+.banc-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.banc-selector-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.banc-btn {
+  padding: 0.45rem 1rem;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.banc-btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,209,0,0.4);
+}
+
+.banc-btn.active {
+  background: linear-gradient(135deg, #ffd700, #b8860b);
+  color: #1a1a1a;
+  border-color: #ffd700;
+  box-shadow: 0 2px 8px rgba(255,209,0,0.3);
+}
+
 /* ===== TERRAIN ===== */
 #pitch-container {
   width: 100%;

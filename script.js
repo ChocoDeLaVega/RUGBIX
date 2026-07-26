@@ -107,6 +107,7 @@ async function loadProgressFromFirebase() {
       coins = data.coins !== undefined ? data.coins : 200;
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
+      if (data.banc && BANC_CONFIGS[data.banc]) currentBanc = data.banc;
       // Restaurer l'équipe : on stocke { slotId: "name|team" } et on retrouve le joueur
       if (data.equipe) {
         equipe = {};
@@ -119,6 +120,7 @@ async function loadProgressFromFirebase() {
       collection = {};
       coins = 900;
       equipe = {};
+      currentBanc = "5-3";
       await saveToFirebase();
     }
   } catch(e) {
@@ -144,6 +146,7 @@ function saveData() {
         collection,
         coins,
         equipe: equipeSerialized,
+        banc: currentBanc,
         xvUsed: xvUsedInMemory,
         dailyLast: dailyLastUsed || null,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -165,6 +168,7 @@ async function saveToFirebase() {
       collection,
       coins,
       equipe: equipeSerialized,
+      banc: currentBanc,
       xvUsed: xvUsedInMemory,
       dailyLast: dailyLastUsed || null,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -374,7 +378,6 @@ function init() {
   setupModal();
   setupCardDetailModal();
   setupSellConfirmModal();
-  setupCoinsButton();
   setupGiftListener();
   setupGiftModal();
 }
@@ -531,23 +534,6 @@ function updateCoinsDisplay() {
   });
 }
 
-function setupCoinsButton() {
-  const btn = document.getElementById("add-coins-btn");
-  // Visible uniquement pour l'admin en DEV_MODE
-  function updateBtnVisibility() {
-    btn.style.display = (isAdmin() && DEV_MODE) ? "inline-block" : "none";
-  }
-  updateBtnVisibility();
-  window._updateCoinsBtnVisibility = updateBtnVisibility; // appelé au toggle DEV_MODE
-
-  btn.addEventListener("click", () => {
-    if (!isAdmin() || !DEV_MODE) return;
-    coins += 100;
-    saveData();
-    updateCoinsDisplay();
-  });
-}
-
 // ---------------------------------------------------------
 // ONGLETS
 // ---------------------------------------------------------
@@ -689,43 +675,7 @@ function updatePosteFilterForClub(tab) {
   posteSelect.classList.remove("hidden");
 }
 
-// Affiche/masque et alimente le filtre secondaire par poste (commun aux deux onglets)
-function updatePositionFilterVisibility(tab = "collection") {
-  const isAlbum = tab === "album";
-  const sortMode = document.getElementById(isAlbum ? "album-sort-select" : "sort-select").value;
-  const posSelect = document.getElementById(isAlbum ? "album-position-filter-select" : "position-filter-select");
-
-  const POSITION_ORDER = [
-    "Pilier", "Talonneur", "Deuxième ligne", "Troisième ligne",
-    "Demi de mêlée", "Demi d'ouverture", "Centre", "Ailier", "Arrière"
-  ];
-
-  if (sortMode === "position") {
-    const allPositions = new Set();
-    PLAYERS.forEach(p => {
-      // Pour album : tous les joueurs. Pour collection : seulement possédés
-      if (isAlbum || getEntry(getCardKey(p)).count > 0) {
-        (p.positions || []).forEach(pos => allPositions.add(pos));
-      }
-    });
-
-    const sortedPositions = Array.from(allPositions).sort((a, b) => {
-      const ia = POSITION_ORDER.indexOf(a);
-      const ib = POSITION_ORDER.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b);
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
-    const currentValue = posSelect.value;
-    posSelect.innerHTML = `<option value="all">Tous les postes</option>` +
-      sortedPositions.map(pos => `<option value="${pos}">${pos}</option>`).join("");
-    if (sortedPositions.includes(currentValue)) posSelect.value = currentValue;
-    posSelect.classList.remove("hidden");
-  } else {
-    posSelect.classList.add("hidden");
-  }
-}
+// (Ancienne fonction updatePositionFilterVisibility supprimée — remplacée par updateSecondaryFilters)
 
 // ---------------------------------------------------------
 // AFFICHAGE DES PACKS
@@ -1471,7 +1421,7 @@ function buildCardElement(player, count = null, options = {}) {
     .slice(0, 2)
     .toUpperCase();
 
-  const customTeams = ["toulouse", "montpellier", "racing92", "lapelle", "clermont", "ubb", "bayonne", "perpignan", "montauban", "pau", "castres", "toulon", "stadefr", "lyon", "vannes"];
+  const customTeams = ["toulouse", "montpellier", "racing92", "lapelle", "clermont", "ubb", "bayonne", "perpignan", "montauban"];
   // Les légendes gardent la couleur de leur club sur l'avatar (liseré doré géré par .card.legendaire)
   const isCustom = customTeams.includes(player.team);
   const avatarClass = isCustom ? `avatar-${player.team}` : "";
@@ -1692,14 +1642,67 @@ const EQUIPE_SLOTS = [
   { id: "centre_d",   label: "Centre",             poste: "Centre",           num: 13 },
   { id: "ailier_g",   label: "Ailier",             poste: "Ailier",           num: 11 },
   { id: "ailier_d",   label: "Ailier",             poste: "Ailier",           num: 14 },
-  { id: "arriere",    label: "Arrière",            poste: "Arrière",          num: 15 },
-  // Remplaçants
-  { id: "rempl_avants",    label: "Remplaçant\nAvants",    poste: "Avants",    num: 16, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
-  { id: "rempl_avants2",   label: "Remplaçant\nAvants",    poste: "Avants",    num: 19, remplacant: true, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
-  { id: "rempl_demis",     label: "Remplaçant\nDemis",     poste: "Demis",     num: 17, remplacant: true, postes: ["Demi de mêlée","Demi d'ouverture"] },
-  { id: "rempl_arrieres",  label: "Remplaçant\nArrières",  poste: "Arrières",  num: 18, remplacant: true, postes: ["Centre","Ailier","Arrière"] },
-  { id: "rempl_arrieres2", label: "Remplaçant\nArrières",  poste: "Arrières",  num: 20, remplacant: true, postes: ["Centre","Ailier","Arrière"] }
+  { id: "arriere",    label: "Arrière",            poste: "Arrière",          num: 15 }
 ];
+
+// ---------------------------------------------------------
+// CONFIGURATIONS DE BANC (5-3 / 6-2 / 7-1)
+// Chaque config définit les 8 postes de remplaçants (num 16-23)
+// Contrainte commune : au moins 2 Piliers + 1 Talonneur parmi les avants
+// ---------------------------------------------------------
+const BANC_CONFIGS = {
+  "5-3": {
+    label: "5-3",
+    description: "5 avants / 3 trois-quarts",
+    slots: [
+      { id: "r16", label: "Pilier",           num: 16, postes: ["Pilier"] },
+      { id: "r17", label: "Talonneur",        num: 17, postes: ["Talonneur"] },
+      { id: "r18", label: "Pilier",           num: 18, postes: ["Pilier"] },
+      { id: "r19", label: "2e/3e Ligne",      num: 19, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r20", label: "2e/3e Ligne",      num: 20, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r21", label: "Demi de Mêlée",    num: 21, postes: ["Demi de mêlée"] },
+      { id: "r22", label: "Demi d'Ouverture", num: 22, postes: ["Demi d'ouverture"] },
+      { id: "r23", label: "Trois-quarts",     num: 23, postes: ["Centre","Ailier","Arrière"] }
+    ]
+  },
+  "6-2": {
+    label: "6-2",
+    description: "6 avants / 2 trois-quarts",
+    slots: [
+      { id: "r16", label: "Pilier",           num: 16, postes: ["Pilier"] },
+      { id: "r17", label: "Talonneur",        num: 17, postes: ["Talonneur"] },
+      { id: "r18", label: "Pilier",           num: 18, postes: ["Pilier"] },
+      { id: "r19", label: "2e/3e Ligne",      num: 19, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r20", label: "2e/3e Ligne",      num: 20, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r21", label: "2e/3e Ligne",      num: 21, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r22", label: "Demi (M/O)",       num: 22, postes: ["Demi de mêlée","Demi d'ouverture"] },
+      { id: "r23", label: "Trois-quarts",     num: 23, postes: ["Centre","Ailier","Arrière"] }
+    ]
+  },
+  "7-1": {
+    label: "7-1",
+    description: "7 avants / 1 trois-quarts",
+    slots: [
+      { id: "r16", label: "Pilier",           num: 16, postes: ["Pilier"] },
+      { id: "r17", label: "Talonneur",        num: 17, postes: ["Talonneur"] },
+      { id: "r18", label: "Pilier",           num: 18, postes: ["Pilier"] },
+      { id: "r19", label: "2e/3e Ligne",      num: 19, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r20", label: "2e/3e Ligne",      num: 20, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r21", label: "2e/3e Ligne",      num: 21, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r22", label: "Avant (libre)",    num: 22, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
+      { id: "r23", label: "Trois-quarts",     num: 23, postes: ["Demi de mêlée","Demi d'ouverture","Centre","Ailier","Arrière"] }
+    ]
+  }
+};
+
+// Banc actuellement sélectionné (persisté avec l'équipe)
+let currentBanc = "5-3";
+
+// Retourne les slots de remplaçants du banc actuel, au format EQUIPE_SLOTS
+function getBancSlots() {
+  const config = BANC_CONFIGS[currentBanc] || BANC_CONFIGS["5-3"];
+  return config.slots.map(s => ({ ...s, remplacant: true }));
+}
 
 // Rareté order pour compo type
 const RARITY_RANK = { legendaire: 5, international: 4, epique: 3, rare: 2, commune: 1 };
@@ -1741,16 +1744,16 @@ function renderEquipe() {
 
   wrapper.appendChild(pitch);
 
-  // === REMPLAÇANTS (panneau latéral) ===
+  // === REMPLAÇANTS (panneau latéral, selon banc sélectionné) ===
   const remplPanel = document.createElement("div");
   remplPanel.className = "remplacants-panel";
 
   const remplTitle = document.createElement("div");
   remplTitle.className = "remplacants-title";
-  remplTitle.textContent = "Remplaçants";
+  remplTitle.textContent = `Remplaçants (${currentBanc})`;
   remplPanel.appendChild(remplTitle);
 
-  const remplSlots = EQUIPE_SLOTS.filter(s => s.remplacant);
+  const remplSlots = getBancSlots();
   remplSlots.forEach(slot => {
     const player = equipe[slot.id] || null;
     const slotEl = buildPitchSlot(slot, player);
@@ -1761,7 +1764,24 @@ function renderEquipe() {
   wrapper.appendChild(remplPanel);
   container.appendChild(wrapper);
 
-  // Boutons
+  // Boutons banc 5-3 / 6-2 / 7-1
+  ["5-3", "6-2", "7-1"].forEach(bancKey => {
+    const btn = document.getElementById(`banc-${bancKey}-btn`);
+    if (!btn) return;
+    btn.classList.toggle("active", currentBanc === bancKey);
+    btn.onclick = () => {
+      if (currentBanc === bancKey) return;
+      currentBanc = bancKey;
+      // Nettoyer les slots remplaçants (les postes changent selon le banc)
+      Object.keys(equipe).forEach(id => {
+        if (id.startsWith("r1") || id.startsWith("r2")) delete equipe[id];
+      });
+      renderEquipe();
+      saveData();
+    };
+  });
+
+  // Boutons Compo Type / Réinitialiser
   document.getElementById("compo-type-btn").onclick = doCompoType;
   document.getElementById("reset-equipe-btn").onclick = () => {
     equipe = {};
@@ -1800,7 +1820,7 @@ function buildMiniCard(player, slot) {
 
   // Couleur de fond du mini-header — les légendes gardent la couleur du club
   let bgStyle = "";
-  const customTeams = ["toulouse","montpellier","racing92","lapelle","clermont","ubb","bayonne","perpignan","montauban","pau","castres","toulon","stadefr","lyon","vannes"];
+  const customTeams = ["toulouse","montpellier","racing92","lapelle","clermont","ubb","bayonne","perpignan","montauban"];
   if (customTeams.includes(player.team)) {
     bgStyle = ""; // handled by CSS class
   } else {
@@ -1962,8 +1982,11 @@ function closePlayerSelect() {
 function doCompoType() {
   const newEquipe = {};
 
-  EQUIPE_SLOTS.forEach(slot => {
-    // Postes à filtrer selon titulaire ou remplaçant
+  // Titulaires (les 15 premiers slots, sans remplacant) + remplaçants du banc actuel
+  const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
+  const allSlots = [...titulaires, ...getBancSlots()];
+
+  allSlots.forEach(slot => {
     const slotPostes = slot.remplacant ? slot.postes : [slot.poste];
 
     const eligible = PLAYERS.filter(p =>
@@ -2414,7 +2437,7 @@ function bindAdminEvents() {
     document.getElementById("devmode-label").textContent = DEV_MODE ? "ON" : "OFF";
     document.getElementById("devmode-label").style.color = DEV_MODE ? "#05DF72" : "#ff6b6b";
     document.getElementById("devmode-toggle-btn").textContent = DEV_MODE ? "Désactiver" : "Activer";
-    if (window._updateCoinsBtnVisibility) window._updateCoinsBtnVisibility();
+    // (bouton +100 supprimé définitivement)
   };
 
   // Tabs add/remove
