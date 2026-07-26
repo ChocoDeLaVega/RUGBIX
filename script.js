@@ -202,10 +202,15 @@ async function loadPlayersOverrides() {
       }
     }
 
-    // Appliquer les ajouts (en évitant les doublons)
+    // Appliquer les ajouts (en évitant les doublons, en validant la rareté)
     if (data.added && data.added.length > 0) {
       const existingKeys = new Set(PLAYERS.map(p => makeKey(p)));
       data.added.forEach(player => {
+        // Sécurité : rareté invalide ou manquante → commune par défaut
+        if (!RARITIES[player.rarity]) {
+          console.warn(`⚠ Joueur "${player.name}" avait une rareté invalide ("${player.rarity}") — corrigée en "commune"`);
+          player.rarity = "commune";
+        }
         if (!existingKeys.has(makeKey(player))) {
           PLAYERS.push(player);
         }
@@ -224,7 +229,7 @@ async function loadPlayersOverrides() {
         const idx = PLAYERS.findIndex(p => makeKey(p) === edit.key);
         if (idx >= 0) {
           if (edit.team) PLAYERS[idx].team = edit.team;
-          if (edit.rarity) PLAYERS[idx].rarity = edit.rarity;
+          if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
         }
       });
@@ -1282,7 +1287,7 @@ function sellCard(key, quantity) {
   }
 
   // Cartes verrouillées = 0 RUGBIZ, non verrouillées = valeur normale
-  coins += RARITIES[player.rarity].sellValue * unlockedSold;
+  coins += (RARITIES[player.rarity]?.sellValue || 0) * unlockedSold;
 
   saveData();
   updateCoinsDisplay();
@@ -1448,7 +1453,7 @@ function buildCardElement(player, count = null, options = {}) {
       <p class="card-name">${player.name}</p>
       <p class="card-team">${clubsText}</p>
       <p class="card-position">${positionText}</p>
-      <span class="card-rarity ${player.rarity}">${RARITIES[player.rarity].label}</span>
+      <span class="card-rarity ${player.rarity}">${RARITIES[player.rarity]?.label || "?"}</span>
       ${count !== null ? `<div class="card-count">x${count}</div>` : ""}
       <p class="card-nationality"><span class="nat-flag">${getFlagEmoji(natCode)}</span><span class="nat-code">${getNatLabel(natCode)}</span></p>
     </div>
@@ -1552,7 +1557,7 @@ function updateCardDetailControls() {
   const maxSellable = Math.max(0, entry.count - lockedCount);
   const totalSellable = entry.count; // locked + unlocked, toutes vendables (locked = 0 RUGBIZ)
   const player = PLAYERS.find(p => getCardKey(p) === currentDetailKey);
-  const sellValue = player ? RARITIES[player.rarity].sellValue : 0;
+  const sellValue = player ? (RARITIES[player.rarity]?.sellValue || 0) : 0;
 
   const sellControls = document.querySelector(".sell-controls");
   const confirmBtn = document.getElementById("confirm-sell-btn");
@@ -1942,7 +1947,7 @@ function renderPlayerSelectList(eligible, slot, clubFilter) {
 
 function buildPlayerSelectRow(player, slot) {
   const team = TEAMS[player.team];
-  const rarityConfig = RARITIES[player.rarity];
+  const rarityConfig = RARITIES[player.rarity] || { color: "#888", label: player.rarity || "?" };
   const isSelected = Object.values(equipe).some(p => getCardKey(p) === getCardKey(player));
 
   const row = document.createElement("div");
