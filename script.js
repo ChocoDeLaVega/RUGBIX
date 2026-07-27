@@ -305,7 +305,7 @@ async function loadPlayersOverrides() {
       }
     }
 
-    // Appliquer les ajouts (en évitant les doublons, en validant la rareté)
+    // Appliquer les ajouts (en évitant les doublons, en validant rareté et club)
     if (data.added && data.added.length > 0) {
       const existingKeys = new Set(PLAYERS.map(p => makeKey(p)));
       data.added.forEach(player => {
@@ -313,6 +313,12 @@ async function loadPlayersOverrides() {
         if (!RARITIES[player.rarity]) {
           console.warn(`⚠ Joueur "${player.name}" avait une rareté invalide ("${player.rarity}") — corrigée en "commune"`);
           player.rarity = "commune";
+        }
+        // Sécurité : club invalide ou manquant → premier club disponible par défaut
+        if (!player.team || !TEAMS[player.team]) {
+          const fallbackTeam = Object.keys(TEAMS)[0];
+          console.warn(`⚠ Joueur "${player.name}" avait un club invalide ("${player.team}") — corrigé en "${fallbackTeam}"`);
+          player.team = fallbackTeam;
         }
         if (!existingKeys.has(makeKey(player))) {
           PLAYERS.push(player);
@@ -331,7 +337,7 @@ async function loadPlayersOverrides() {
       data.edited.forEach(edit => {
         const idx = PLAYERS.findIndex(p => makeKey(p) === edit.key);
         if (idx >= 0) {
-          if (edit.team) PLAYERS[idx].team = edit.team;
+          if (edit.team && TEAMS[edit.team]) PLAYERS[idx].team = edit.team;
           if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
         }
@@ -1572,8 +1578,8 @@ function buildCardElement(player, count = null, options = {}) {
   const natCode = (player.nat || "FRA").toUpperCase().trim();
 
   const clubsText = player.clubs && player.clubs.length > 1
-    ? player.clubs.map(c => TEAMS[c].name).join(" / ")
-    : team.name;
+    ? player.clubs.map(c => TEAMS[c]?.name || c).join(" / ")
+    : (team?.name || player.team || "?");
 
   const isLocked = (options.lockedCount || 0) > 0;
   const note = getPlayerNote(player);
@@ -1980,7 +1986,7 @@ function buildMiniCard(player, slot) {
       </div>
       <div class="mini-card-body">
         <div class="mini-name">${player.name}</div>
-        <div class="mini-team">${team.name}</div>
+        <div class="mini-team">${team?.name || player.team || "?"}</div>
         <div class="mini-pos">${posText}</div>
       </div>
     </div>
@@ -2047,7 +2053,7 @@ function openPlayerSelect(slot) {
     const sel = document.createElement("select");
     sel.id = "psr-club-select";
     sel.innerHTML = `<option value="all">Tous les clubs</option>` +
-      clubs.map(t => `<option value="${t}">${TEAMS[t].name}</option>`).join("");
+      clubs.map(t => `<option value="${t}">${TEAMS[t]?.name || t}</option>`).join("");
     sel.addEventListener("change", () => renderPlayerSelectList(eligible, slot, sel.value));
     filterDiv.appendChild(sel);
     list.appendChild(filterDiv);
@@ -2093,7 +2099,7 @@ function buildPlayerSelectRow(player, slot) {
     <div class="psr-rarity" style="background:${rarityConfig.color}; color:${player.rarity==='legendaire'?'#fff':'#fff'}">${rarityConfig.label}</div>
     <div class="psr-info">
       <div class="psr-name">${player.name}</div>
-      <div class="psr-team">${team.name}</div>
+      <div class="psr-team">${team?.name || player.team || "?"}</div>
     </div>
     <button class="psr-add-btn" ${isSelected ? "disabled title='Déjà dans l\\'équipe'" : ""}>
       ${isSelected ? "✓ En équipe" : "＋ Ajouter"}
