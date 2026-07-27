@@ -570,7 +570,9 @@ html, body {
 #album-sort-select,
 #album-position-filter-select,
 #album-club-filter-select,
-#album-poste-filter-select {
+#album-poste-filter-select,
+#rarity-filter-select,
+#album-rarity-filter-select {
   padding: 0.45rem 0.8rem;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.15);
@@ -596,7 +598,9 @@ html, body {
 #album-sort-select:hover,
 #album-position-filter-select:hover,
 #album-club-filter-select:hover,
-#album-poste-filter-select:hover {
+#album-poste-filter-select:hover,
+#rarity-filter-select:hover,
+#album-rarity-filter-select:hover {
   border-color: var(--gold);
   background-color: rgba(255,255,255,0.1);
 }
@@ -608,7 +612,9 @@ html, body {
 #album-sort-select:focus,
 #album-position-filter-select:focus,
 #album-club-filter-select:focus,
-#album-poste-filter-select:focus {
+#album-poste-filter-select:focus,
+#rarity-filter-select:focus,
+#album-rarity-filter-select:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(255,209,0,0.25);
@@ -622,7 +628,9 @@ html, body {
 #album-sort-select option,
 #album-position-filter-select option,
 #album-club-filter-select option,
-#album-poste-filter-select option {
+#album-poste-filter-select option,
+#rarity-filter-select option,
+#album-rarity-filter-select option {
   background: #1a1c2e;
   color: #fff;
 }
@@ -2566,6 +2574,10 @@ textarea.contact-input {
    ========================================================= */
 @media (max-width: 768px) {
 
+  /* ── Sécurité globale anti-débordement horizontal ── */
+  * { box-sizing: border-box; }
+  body, .game-client, .game-content { max-width: 100vw; overflow-x: hidden; }
+
   /* ── Layout général ── */
   html, body { overflow: auto; }
 
@@ -2662,6 +2674,106 @@ textarea.contact-input {
   .pack-card { padding: 1rem 0.8rem; }
   .pack-icon { font-size: 2rem; }
 
+  /* ── Modales : contrainte stricte sur toute la largeur écran ── */
+  .modal {
+    padding: 0.4rem;
+    align-items: flex-start;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .modal-content {
+    width: calc(100vw - 0.8rem) !important;
+    max-width: calc(100vw - 0.8rem) !important;
+    max-height: 94vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 12px;
+    padding: 1rem 0.7rem;
+    margin: 0.4rem auto;
+    box-sizing: border-box;
+  }
+
+  .card-detail-content {
+    width: calc(100vw - 0.8rem) !important;
+    max-width: calc(100vw - 0.8rem) !important;
+  }
+
+  .gift-modal-content {
+    width: calc(100vw - 0.8rem) !important;
+    max-width: calc(100vw - 0.8rem) !important;
+  }
+
+  .legal-modal-content,
+  .contact-modal-content,
+  .player-select-content {
+    width: calc(100vw - 0.8rem) !important;
+    max-width: calc(100vw - 0.8rem) !important;
+    padding: 1rem 0.7rem;
+    box-sizing: border-box;
+  }
+
+  /* ── Modale ouverture packs : cartes réduites pour tenir sans zoom ── */
+  #opening-modal .modal-content {
+    padding: 0.8rem 0.5rem;
+  }
+
+  #opening-title {
+    font-size: 1.15rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .reveal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
+    justify-items: center;
+  }
+
+  .reveal-grid .card {
+    width: 100%;
+    max-width: 100px;
+    transform: none; /* le scale précédent ne réduisait pas l'espace réel occupé */
+  }
+
+  .reveal-grid .card-name { font-size: 0.62rem; }
+  .reveal-grid .card-team { font-size: 0.52rem; }
+  .reveal-grid .card-position { font-size: 0.48rem; }
+  .reveal-grid .card-rarity { font-size: 0.5rem; padding: 0.1rem 0.35rem; }
+  .reveal-grid .card-nationality { font-size: 0.48rem; }
+  .reveal-grid .card-avatar { height: 70px; }
+  .reveal-grid .card-note { width: 22px; height: 22px; font-size: 0.7rem; }
+
+  #close-modal-btn {
+    width: 100%;
+    margin-top: 0.8rem;
+    padding: 0.6rem;
+  }
+
+  /* ── Grille cartes générale (Mon Club / Album) sur petit écran ── */
+  .cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .cards-grid .card-name { font-size: 0.68rem; }
+  .cards-grid .card-team { font-size: 0.58rem; }
+
+  /* ── Packs : 2 colonnes, cartes bien dimensionnées ── */
+  .packs-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .pack-card { padding: 0.9rem 0.6rem; }
+  .pack-icon { font-size: 1.8rem; }
+  .pack-card h3 { font-size: 0.9rem; }
+  .pack-card p { font-size: 0.72rem; }
+  .pack-cost { font-size: 0.85rem; }
+  .open-btn { font-size: 0.78rem; padding: 0.5rem 0.6rem; }
+
   /* ── Sort controls ── */
   .sort-controls {
     flex-wrap: wrap;
@@ -2671,36 +2783,20 @@ textarea.contact-input {
   .sort-controls label { font-size: 0.72rem; }
 
   #sort-select, #position-filter-select,
-  #club-filter-select, #poste-filter-select,
+  #club-filter-select, #poste-filter-select, #rarity-filter-select,
   #album-sort-select, #album-position-filter-select,
-  #album-club-filter-select, #album-poste-filter-select {
+  #album-club-filter-select, #album-poste-filter-select, #album-rarity-filter-select {
     font-size: 0.75rem;
     padding: 0.35rem 1.6rem 0.35rem 0.6rem;
+    max-width: 100%;
   }
 
-  /* ── Modales ── */
-  .modal { padding: 0.5rem; align-items: flex-start; overflow-y: auto; }
+  .search-bar-wrapper input { font-size: 0.8rem; }
 
-  .modal-content {
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: 92vh;
-    overflow-y: auto;
-    border-radius: 12px;
-    padding: 1.2rem 1rem;
-    margin: auto;
-  }
-
-  .card-detail-content { width: 100% !important; }
-
-  .gift-modal-content { width: 100% !important; max-width: 100% !important; }
-
-  /* ── Modale ouverture packs ── */
-  .reveal-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 0.4rem;
-  }
-  .reveal-grid .card { transform: scale(0.85); transform-origin: top center; }
+  /* ── Modale sélection joueur (Mon Équipe) ── */
+  .player-select-list { max-height: 45vh; }
+  .player-select-row { font-size: 0.78rem; padding: 0.5rem 0.6rem; }
+  .psr-add-btn { font-size: 0.72rem; padding: 0.35rem 0.6rem; }
 
   /* ── Terrain Mon Équipe ── */
   .equipe-wrapper {
@@ -2712,17 +2808,20 @@ textarea.contact-input {
     min-width: unset;
     width: 100%;
     padding: 0.8rem 0.4rem;
+    box-sizing: border-box;
   }
 
   .pitch-row { gap: 0.2rem; flex-wrap: nowrap; justify-content: center; overflow-x: auto; }
 
-  .pitch-slot { width: 72px; min-height: 72px; flex-shrink: 0; }
+  .pitch-slot { width: 68px; min-height: 66px; flex-shrink: 0; }
 
-  .mini-card { width: 72px; }
-  .mini-card-body { padding: 0.2rem 0.25rem; }
-  .mini-name { font-size: 0.52rem; }
-  .mini-team { font-size: 0.45rem; }
-  .mini-pos  { font-size: 0.42rem; }
+  .mini-card { width: 68px; }
+  .mini-card-header { height: 34px; }
+  .mini-card-body { padding: 0.18rem 0.22rem; }
+  .mini-name { font-size: 0.5rem; }
+  .mini-team { font-size: 0.42rem; }
+  .mini-pos  { font-size: 0.4rem; }
+  .mini-note { width: 16px; height: 16px; font-size: 0.55rem; }
 
   .remplacants-panel {
     flex-direction: row;
@@ -2730,14 +2829,11 @@ textarea.contact-input {
     justify-content: center;
     align-self: auto;
     flex-wrap: wrap;
-    padding: 0.7rem;
+    padding: 0.6rem;
+    box-sizing: border-box;
   }
 
-  .remplacant-slot { width: 90px !important; }
-
-  /* ── Player select modal ── */
-  .player-select-content { padding: 1rem 0.8rem; }
-  .player-select-list { max-height: 50vh; }
+  .remplacant-slot { width: 78px !important; }
 
   /* ── Auth screen ── */
   .auth-box {
@@ -2764,14 +2860,36 @@ textarea.contact-input {
   .equipe-actions { gap: 0.4rem; }
   .compo-type-btn, .reset-equipe-btn { padding: 0.45rem 0.8rem; font-size: 0.78rem; }
 
+  /* ── Sélecteur banc ── */
+  .banc-selector { flex-wrap: wrap; gap: 0.4rem; }
+  .banc-btn { padding: 0.35rem 0.8rem; font-size: 0.78rem; }
+
+  /* ── Listes déroulantes admin (BDD joueurs) : hauteur réduite sur mobile ── */
+  #admin-card-select, #note-player-select,
+  #edit-player-select, #remove-player-select {
+    height: 140px !important;
+    font-size: 0.72rem;
+  }
+
+  .admin-db-filters { flex-direction: column; }
+  .admin-db-filters .admin-select { min-width: 0; width: 100%; }
+
+  .admin-row { flex-direction: column; }
+
+  .contact-input { font-size: 0.85rem; }
+
 }
 
 /* Extra small (iPhone SE etc.) */
 @media (max-width: 390px) {
   .packs-grid { grid-template-columns: 1fr; }
-  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); }
-  .pitch-slot { width: 78px; min-height: 68px; }
-  .mini-card { width: 78px; }
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .reveal-grid { grid-template-columns: repeat(2, 1fr); }
+  .pitch-slot { width: 60px; min-height: 60px; }
+  .mini-card { width: 60px; }
+  .mini-card-header { height: 30px; }
+  .remplacant-slot { width: 68px !important; }
+  .modal-content { padding: 0.8rem 0.5rem; }
 }
 
 /* ===== FILTRES ADMIN BASE DE DONNÉES ===== */

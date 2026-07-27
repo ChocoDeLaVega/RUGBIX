@@ -72,21 +72,18 @@ firebase.auth().onAuthStateChanged(async user => {
       );
     } catch(e) {}
 
-    // Marquer le joueur comme connecté (présence temps réel)
-    try {
-      await db.collection("presence").doc(currentUser.uid).set({
-        username,
-        connectedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      // Supprimer la présence quand la fenêtre se ferme
-      window.addEventListener("beforeunload", () => {
-        db.collection("presence").doc(currentUser.uid).delete();
-      });
-    } catch(e) {}
+    // Marquer le joueur comme connecté (présence temps réel avec heartbeat)
+    startPresenceHeartbeat(username);
 
     init();
+
+    // Activer la synchronisation temps réel entre appareils (PC / mobile)
+    setupProgressSync();
   } else {
-    // Supprimer la présence à la déconnexion
+    // Arrêter la synchronisation temps réel
+    if (progressUnsubscribe) { progressUnsubscribe(); progressUnsubscribe = null; }
+    // Arrêter le heartbeat et supprimer la présence à la déconnexion
+    stopPresenceHeartbeat();
     if (currentUser) {
       try { await db.collection("presence").doc(currentUser.uid).delete(); } catch(e) {}
     }
@@ -98,6 +95,105 @@ firebase.auth().onAuthStateChanged(async user => {
 });
 
 // Charger la progression depuis Firestore
+// Écouteur temps réel : synchronise la progression entre PC/mobile automatiquement
+let progressUnsubscribe = null;
+let isSavingLocally = false; // évite de re-déclencher un rendu pendant qu'on sauvegarde nous-même
+
+// ---------------------------------------------------------
+// PRÉSENCE EN TEMPS RÉEL (heartbeat)
+// ---------------------------------------------------------
+const PRESENCE_HEARTBEAT_MS = 25000;  // rafraîchit toutes les 25s
+const PRESENCE_STALE_MS = 60000;      // considéré hors ligne après 60s sans heartbeat
+let presenceInterval = null;
+let presenceListenerUnsubscribe = null;
+
+async function writePresence(username) {
+  if (!currentUser) return;
+  try {
+    await db.collection("presence").doc(currentUser.uid).set({
+      username,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) {
+    console.warn("Présence non écrite:", e.message);
+  }
+}
+
+function startPresenceHeartbeat(username) {
+  stopPresenceHeartbeat();
+  writePresence(username); // écriture immédiate
+  presenceInterval = setInterval(() => writePresence(username), PRESENCE_HEARTBEAT_MS);
+
+  // Rafraîchir aussi quand l'onglet redevient visible (utile sur mobile après mise en veille)
+  document.addEventListener("visibilitychange", handleVisibilityForPresence);
+  window.addEventListener("beforeunload", handleUnloadForPresence);
+}
+
+function stopPresenceHeartbeat() {
+  if (presenceInterval) {
+    clearInterval(presenceInterval);
+    presenceInterval = null;
+  }
+  document.removeEventListener("visibilitychange", handleVisibilityForPresence);
+  window.removeEventListener("beforeunload", handleUnloadForPresence);
+}
+
+function handleVisibilityForPresence() {
+  if (document.visibilityState === "visible" && currentUser) {
+    const username = currentUser.displayName || currentUser.email.split("@")[0];
+    writePresence(username);
+  }
+}
+
+function handleUnloadForPresence() {
+  if (currentUser) {
+    // Best-effort : peu fiable sur mobile, mais le heartbeat stale-check compense déjà
+    db.collection("presence").doc(currentUser.uid).delete().catch(() => {});
+  }
+}
+
+function setupProgressSync() {
+  if (!currentUser) return;
+  if (progressUnsubscribe) progressUnsubscribe(); // éviter les doublons d'écoute
+
+  progressUnsubscribe = db.collection("users").doc(currentUser.uid)
+    .onSnapshot(doc => {
+      if (!doc.exists) return;
+      // Ignore les mises à jour qui viennent de notre propre sauvegarde en cours
+      if (isSavingLocally) return;
+
+      const data = doc.data();
+      collection = data.collection || {};
+      coins = data.coins !== undefined ? data.coins : coins;
+      if (data.xvUsed) xvUsedInMemory = true;
+      if (data.dailyLast) dailyLastUsed = data.dailyLast;
+      if (data.banc && BANC_CONFIGS[data.banc]) currentBanc = data.banc;
+
+      if (data.equipe) {
+        equipe = {};
+        for (const [slotId, key] of Object.entries(data.equipe)) {
+          const player = PLAYERS.find(p => getCardKey(p) === key);
+          if (player) equipe[slotId] = player;
+        }
+      } else {
+        equipe = {};
+      }
+
+      // Rafraîchir l'affichage si le jeu est déjà démarré
+      if (document.getElementById("game-client") && !document.getElementById("game-client").classList.contains("hidden")) {
+        updateCoinsDisplay();
+        renderPacks();
+        // Ne re-render que l'onglet actuellement visible pour éviter les à-coups
+        const activeTab = document.querySelector(".nav-btn.active")?.dataset.tab;
+        if (activeTab === "collection") renderCollection();
+        if (activeTab === "album") renderAlbum();
+        if (activeTab === "equipe") renderEquipe();
+      }
+    }, err => {
+      console.warn("Sync temps réel indisponible:", err.message);
+    });
+}
+
 async function loadProgressFromFirebase() {
   try {
     const doc = await db.collection("users").doc(currentUser.uid).get();
@@ -131,12 +227,13 @@ async function loadProgressFromFirebase() {
   }
 }
 
-// Sauvegarder la progression (debounce 1.5s)
+// Sauvegarder la progression (debounce 1.5s) — merge pour ne jamais écraser d'autres champs
 function saveData() {
   if (!currentUser) return;
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(async () => {
     try {
+      isSavingLocally = true;
       // Sérialiser l'équipe en { slotId: "name|team" }
       const equipeSerialized = {};
       for (const [slotId, player] of Object.entries(equipe)) {
@@ -150,9 +247,12 @@ function saveData() {
         xvUsed: xvUsedInMemory,
         dailyLast: dailyLastUsed || null,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      }, { merge: true });
     } catch(e) {
       console.error("Erreur sauvegarde:", e);
+    } finally {
+      // Petit délai avant de réactiver l'écoute, pour laisser Firestore propager
+      setTimeout(() => { isSavingLocally = false; }, 800);
     }
   }, 1500);
 }
@@ -160,6 +260,7 @@ function saveData() {
 async function saveToFirebase() {
   if (!currentUser) return;
   try {
+    isSavingLocally = true;
     const equipeSerialized = {};
     for (const [slotId, player] of Object.entries(equipe)) {
       if (player) equipeSerialized[slotId] = getCardKey(player);
@@ -172,9 +273,11 @@ async function saveToFirebase() {
       xvUsed: xvUsedInMemory,
       dailyLast: dailyLastUsed || null,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    }, { merge: true });
   } catch(e) {
     console.error("Erreur sauvegarde:", e);
+  } finally {
+    setTimeout(() => { isSavingLocally = false; }, 800);
   }
 }
 
@@ -377,9 +480,10 @@ function getAuthError(code) {
 // ---------------------------------------------------------
 function init() {
   renderPacks();
+  setupTabs();
+  updateSecondaryFilters("collection");
   renderCollection();
   updateCoinsDisplay();
-  setupTabs();
   setupModal();
   setupCardDetailModal();
   setupSellConfirmModal();
@@ -549,8 +653,8 @@ function setupTabs() {
       document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
-      if (btn.dataset.tab === "collection") renderCollection();
-      if (btn.dataset.tab === "album") renderAlbum();
+      if (btn.dataset.tab === "collection") { updateSecondaryFilters("collection"); renderCollection(); }
+      if (btn.dataset.tab === "album") { updateSecondaryFilters("album"); renderAlbum(); }
       if (btn.dataset.tab === "equipe") renderEquipe();
       if (btn.dataset.tab === "admin" && isAdmin()) renderAdmin();
     });
@@ -567,6 +671,7 @@ function setupTabs() {
     renderCollection();
   });
   document.getElementById("poste-filter-select").addEventListener("change", renderCollection);
+  document.getElementById("rarity-filter-select").addEventListener("change", renderCollection);
 
   // Barre de recherche Mon Club
   const searchInput = document.getElementById("collection-search");
@@ -593,6 +698,7 @@ function setupTabs() {
     renderAlbum();
   });
   document.getElementById("album-poste-filter-select").addEventListener("change", renderAlbum);
+  document.getElementById("album-rarity-filter-select").addEventListener("change", renderAlbum);
 
   // Barre de recherche Album
   const albumSearch = document.getElementById("album-search");
@@ -622,13 +728,25 @@ function updateSecondaryFilters(tab) {
   const posSelect    = document.getElementById(isAlbum ? "album-position-filter-select" : "position-filter-select");
   const clubSelect   = document.getElementById(isAlbum ? "album-club-filter-select" : "club-filter-select");
   const posteSelect  = document.getElementById(isAlbum ? "album-poste-filter-select" : "poste-filter-select");
+  const raritySelect = document.getElementById(isAlbum ? "album-rarity-filter-select" : "rarity-filter-select");
 
   // Tout masquer par défaut
   posSelect.classList.add("hidden");
   clubSelect.classList.add("hidden");
   posteSelect.classList.add("hidden");
+  raritySelect.classList.add("hidden");
 
-  if (sortMode === "position") {
+  if (sortMode === "rarity") {
+    // Filtre rareté — dans l'ordre décroissant (Légende → Commune)
+    const rarityOrder = ["legendaire", "international", "epique", "rare", "commune"];
+    const pool = isAlbum ? PLAYERS : PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
+    const presentRarities = new Set(pool.map(p => p.rarity));
+    const sorted = rarityOrder.filter(r => presentRarities.has(r));
+    raritySelect.innerHTML = `<option value="all">Toutes les raretés</option>` +
+      sorted.map(r => `<option value="${r}">${RARITIES[r]?.label || r}</option>`).join("");
+    raritySelect.classList.remove("hidden");
+
+  } else if (sortMode === "position") {
     // Filtre poste unique (mode poste)
     const allPositions = new Set();
     const pool = isAlbum ? PLAYERS : PLAYERS.filter(p => getEntry(getCardKey(p)).count > 0);
@@ -1147,7 +1265,16 @@ function renderCollection() {
     }
   }
 
-  if (sortMode === "position") {
+  if (sortMode === "rarity") {
+    const rarityFilter = document.getElementById("rarity-filter-select")?.value || "all";
+    if (rarityFilter !== "all") {
+      ownedPlayers = ownedPlayers.filter(p => p.rarity === rarityFilter);
+      if (ownedPlayers.length === 0) {
+        container.innerHTML = `<div class="empty-card">Aucune carte de cette rareté dans ton effectif.</div>`;
+        return;
+      }
+    }
+  } else if (sortMode === "position") {
     const posFilter = document.getElementById("position-filter-select")?.value || "all";
     if (posFilter !== "all") {
       ownedPlayers = ownedPlayers.filter(p => (p.positions || []).includes(posFilter));
@@ -1202,7 +1329,16 @@ function renderAlbum() {
     }
   }
 
-  if (sortMode === "position") {
+  if (sortMode === "rarity") {
+    const rarityFilter = document.getElementById("album-rarity-filter-select")?.value || "all";
+    if (rarityFilter !== "all") {
+      allPlayers = allPlayers.filter(p => p.rarity === rarityFilter);
+      if (allPlayers.length === 0) {
+        container.innerHTML = `<div class="empty-card">Aucune carte de cette rareté dans le jeu.</div>`;
+        return;
+      }
+    }
+  } else if (sortMode === "position") {
     const posFilter = document.getElementById("album-position-filter-select")?.value || "all";
     if (posFilter !== "all") {
       allPlayers = allPlayers.filter(p => (p.positions||[]).includes(posFilter));
@@ -2201,6 +2337,15 @@ async function renderAdmin() {
       </div>
 
       <div class="admin-card admin-card-full">
+        <h3>💾 Exporter la base de données</h3>
+        <p class="admin-note" style="margin-top:0;margin-bottom:0.8rem">
+          Génère un fichier <code>data.js</code> à jour incluant tous les ajouts, suppressions, modifications de postes/clubs/raretés et notes personnalisées effectués depuis ce panneau. Télécharge-le et remplace le fichier existant sur ton hébergement pour rendre les changements permanents dans le code source.
+        </p>
+        <button id="admin-export-data-btn" class="admin-btn">⬇️ Télécharger data.js à jour</button>
+        <div id="admin-export-status" class="admin-status"></div>
+      </div>
+
+      <div class="admin-card admin-card-full">
         <h3>📋 Historique des actions</h3>
         <div id="admin-history-list" class="admin-history-list">
           <div class="admin-loading">⏳ Chargement de l'historique...</div>
@@ -2237,10 +2382,23 @@ async function renderAdmin() {
   refreshRemovePlayerList("");
   bindAdminEvents();
 
-  // Listener temps réel pour les joueurs connectés
-  db.collection("presence").onSnapshot(snap => {
+  // Listener temps réel pour les joueurs connectés (ne compte que les présences fraîches)
+  if (presenceListenerUnsubscribe) presenceListenerUnsubscribe(); // éviter les doublons
+  presenceListenerUnsubscribe = db.collection("presence").onSnapshot(snap => {
     const el = document.getElementById("admin-online-count");
-    if (el) el.textContent = snap.size;
+    if (!el) return;
+    const now = Date.now();
+    let onlineCount = 0;
+    snap.forEach(doc => {
+      const data = doc.data();
+      const lastSeenMs = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : 0;
+      if (now - lastSeenMs < PRESENCE_STALE_MS) onlineCount++;
+    });
+    el.textContent = onlineCount;
+  }, err => {
+    console.warn("Listener présence indisponible:", err.message);
+    const el = document.getElementById("admin-online-count");
+    if (el) el.textContent = "?";
   });
 }
 
@@ -2338,6 +2496,26 @@ async function loadAdminHistory() {
 function bindAdminEvents() {
   // Charger l'historique
   loadAdminHistory();
+
+  // Exporter data.js à jour
+  document.getElementById("admin-export-data-btn").onclick = () => {
+    const st = document.getElementById("admin-export-status");
+    try {
+      const fileContent = generateDataJsFile();
+      const blob = new Blob([fileContent], { type: "text/javascript;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.js";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      st.textContent = `✓ data.js téléchargé (${PLAYERS.length} joueurs).`;
+    } catch(e) {
+      st.textContent = `❌ Erreur export : ${e.message}`;
+    }
+  };
 
   // Envoyer RUGBIZ
   document.getElementById("admin-send-coins-btn").onclick = async () => {
@@ -2720,6 +2898,88 @@ function bindAdminEvents() {
     } catch(e) { st.textContent = `❌ ${e.message}`; }
   };
 }
+
+// ---------------------------------------------------------
+// EXPORT data.js — génère le fichier complet à jour
+// ---------------------------------------------------------
+function generateDataJsFile() {
+  // Sérialise un joueur en respectant le format existant du fichier data.js
+  function serializePlayer(p) {
+    const parts = [];
+    parts.push(`name: ${JSON.stringify(p.name)}`);
+    parts.push(`team: ${JSON.stringify(p.team)}`);
+    if (p.clubs && p.clubs.length) {
+      parts.push(`clubs: ${JSON.stringify(p.clubs)}`);
+    }
+    parts.push(`positions: ${JSON.stringify(p.positions || [])}`);
+    parts.push(`rarity: ${JSON.stringify(p.rarity)}`);
+    parts.push(`nat: ${JSON.stringify(p.nat || "FRA")}`);
+    // Note personnalisée si elle existe
+    const key = `${p.name}|${p.team}`;
+    if (noteOverrides[key] !== undefined) {
+      parts.push(`note: ${noteOverrides[key]}`);
+    }
+    return `  { ${parts.join(", ")} },`;
+  }
+
+  const playersLines = PLAYERS.map(serializePlayer).join("\n");
+
+  // Sérialise TEAMS
+  const teamsLines = Object.entries(TEAMS).map(([key, val]) =>
+    `  ${JSON.stringify(key)}: { name: ${JSON.stringify(val.name)}, color: ${JSON.stringify(val.color)} },`
+  ).join("\n");
+
+  // Sérialise RARITIES
+  const raritiesLines = Object.entries(RARITIES).map(([key, val]) => {
+    const fields = [
+      `label: ${JSON.stringify(val.label)}`,
+      `color: ${JSON.stringify(val.color)}`,
+      `weight: ${val.weight}`,
+      `sellValue: ${val.sellValue}`,
+      `noteMin: ${val.noteMin}`,
+      `noteMax: ${val.noteMax}`
+    ];
+    return `  ${JSON.stringify(key)}: { ${fields.join(", ")} },`;
+  }).join("\n");
+
+  // Sérialise PACKS
+  function serializePack(p) {
+    const fields = [];
+    for (const [k, v] of Object.entries(p)) {
+      fields.push(`${k}: ${JSON.stringify(v)}`);
+    }
+    return `  { ${fields.join(", ")} },`;
+  }
+  const packsLines = PACKS.map(serializePack).join("\n");
+
+  const now = new Date().toLocaleString("fr-FR");
+
+  return `// =========================================================
+// RUGBIX — BASE DE DONNÉES
+// Fichier exporté automatiquement depuis le panneau Admin
+// Généré le : ${now}
+// Contient tous les ajouts, suppressions, modifications et notes
+// personnalisées effectués depuis le jeu.
+// =========================================================
+
+const TEAMS = {
+${teamsLines}
+};
+
+let PLAYERS = [
+${playersLines}
+];
+
+const RARITIES = {
+${raritiesLines}
+};
+
+const PACKS = [
+${packsLines}
+];
+`;
+}
+
 
 function refreshNotePlayerList(q) {
   const sel = document.getElementById("note-player-select");
