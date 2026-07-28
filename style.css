@@ -2921,3 +2921,33 @@ textarea.contact-input {
 .mini-card.legendaire .mini-card-header {
   background: radial-gradient(circle at 50% 50%, #fff7d6 0%, #d4af37 50%, #9a9a9a 100%) !important;
 }
+
+/* ===== SOUS-STATS ADMIN (Notes / Ajout joueur) ===== */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.admin-stat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-stat-field span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.admin-stat-field .admin-input {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

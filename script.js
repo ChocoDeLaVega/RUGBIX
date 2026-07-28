@@ -326,10 +326,16 @@ async function loadPlayersOverrides() {
       });
     }
 
-    // Appliquer les notes personnalisées
+    // Appliquer les notes générales personnalisées (forcées)
     if (data.notes && typeof data.notes === "object") {
       noteOverrides = data.notes;
-      console.log(`✓ ${Object.keys(data.notes).length} note(s) personnalisée(s) chargée(s)`);
+      console.log(`✓ ${Object.keys(data.notes).length} note(s) générale(s) personnalisée(s) chargée(s)`);
+    }
+
+    // Appliquer les sous-statistiques personnalisées
+    if (data.stats && typeof data.stats === "object") {
+      statsOverrides = data.stats;
+      console.log(`✓ ${Object.keys(data.stats).length} joueur(s) avec sous-stats personnalisées chargées`);
     }
 
     // Appliquer les modifications de joueurs existants
@@ -1184,32 +1190,95 @@ function getEntry(key) {
   return raw;
 }
 
-// Génère une note déterministe (même note à chaque fois pour le même joueur)
-// Cache des notes modifiées par l'admin (chargé depuis Firestore via loadPlayersOverrides)
+// ---------------------------------------------------------
+// SYSTÈME DE NOTES — Sous-statistiques pondérées par poste
+// ---------------------------------------------------------
+
+// Coefficients par poste (total = 1 par ligne)
+const COEFFS_POSTES = {
+  "Pilier":              { vitesse: 0.05, puissance: 0.50, defense: 0.25, passe: 0.10, technique: 0.10 },
+  "Talonneur":           { vitesse: 0.10, puissance: 0.35, defense: 0.25, passe: 0.15, technique: 0.15 },
+  "Deuxième ligne":      { vitesse: 0.05, puissance: 0.45, defense: 0.30, passe: 0.10, technique: 0.10 },
+  "Troisième ligne":     { vitesse: 0.15, puissance: 0.30, defense: 0.35, passe: 0.10, technique: 0.10 },
+  "Demi de mêlée":       { vitesse: 0.20, puissance: 0.05, defense: 0.15, passe: 0.40, technique: 0.20 },
+  "Demi d'ouverture":    { vitesse: 0.20, puissance: 0.15, defense: 0.15, passe: 0.25, technique: 0.25 },
+  "Centre":              { vitesse: 0.20, puissance: 0.15, defense: 0.15, passe: 0.25, technique: 0.25 },
+  "Ailier":              { vitesse: 0.45, puissance: 0.10, defense: 0.15, passe: 0.10, technique: 0.20 },
+  "Arrière":             { vitesse: 0.45, puissance: 0.10, defense: 0.15, passe: 0.10, technique: 0.20 }
+};
+
+const STAT_KEYS = ["vitesse", "puissance", "defense", "passe", "technique"];
+
+// Cache des sous-notes modifiées par l'admin (chargé depuis Firestore via loadPlayersOverrides)
+// Format : { "name|team": { vitesse, puissance, defense, passe, technique } }
+let statsOverrides = {};
+// Cache des notes générales forcées manuellement (prioritaire sur le calcul auto)
 let noteOverrides = {}; // { "name|team": note }
+
+// Génère des sous-stats déterministes (même valeurs à chaque fois pour un joueur donné)
+// La fourchette dépend de la rareté pour garder une cohérence globale, mais chaque
+// sous-stat varie indépendamment pour créer de la disparité entre joueurs.
+function generateBaseStats(player) {
+  const rarity = RARITIES[player.rarity];
+  const noteMin = rarity?.noteMin ?? 60;
+  const noteMax = rarity?.noteMax ?? 79;
+  const center = (noteMin + noteMax) / 2;
+  const spread = Math.max(8, (noteMax - noteMin) / 2 + 10); // dispersion autour du centre
+
+  const str = player.name + player.team;
+  const stats = {};
+  STAT_KEYS.forEach((stat, idx) => {
+    let hash = 0;
+    const seed = str + stat + idx;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash * 31 + seed.charCodeAt(i)) & 0xffff;
+    }
+    const offset = (hash % (spread * 2)) - spread; // -spread à +spread
+    const val = Math.round(center + offset);
+    stats[stat] = Math.max(30, Math.min(99, val));
+  });
+  return stats;
+}
+
+// Retourne les 5 sous-stats d'un joueur (priorité : overrides admin > data.js > généré)
+function getPlayerStats(player) {
+  const key = `${player.name}|${player.team}`;
+  const base = generateBaseStats(player);
+  if (statsOverrides[key]) return { ...base, ...statsOverrides[key] };
+  if (player.stats) return { ...base, ...player.stats };
+  return base;
+}
+
+// Calcule la note générale à partir des sous-stats et du poste principal
+function calculerNoteGenerale(player, stats) {
+  const postePrincipal = Array.isArray(player.positions) ? player.positions[0] : player.positions;
+  const poids = COEFFS_POSTES[postePrincipal];
+
+  if (!poids) {
+    // Poste inconnu → moyenne simple des sous-stats
+    const vals = STAT_KEYS.map(k => stats[k] || 0);
+    return Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+  }
+
+  const noteCalculee =
+    (stats.vitesse   * poids.vitesse) +
+    (stats.puissance * poids.puissance) +
+    (stats.defense   * poids.defense) +
+    (stats.passe     * poids.passe) +
+    (stats.technique * poids.technique);
+
+  return Math.round(noteCalculee);
+}
 
 function getPlayerNote(player) {
   const key = `${player.name}|${player.team}`;
-  // Priorité aux overrides admin
+  // Priorité 1 : note générale forcée par l'admin (Firestore)
   if (noteOverrides[key] !== undefined) return noteOverrides[key];
-
-  const rarity = RARITIES[player.rarity];
-  if (!rarity) return 70;
-
-  // Protection si noteMin/noteMax absents (ancien data.js)
-  const noteMin = rarity.noteMin ?? 60;
-  const noteMax = rarity.noteMax ?? 79;
-  const range = noteMax - noteMin + 1;
-  if (!range || range <= 0) return noteMin || 70;
-
-  // Hash déterministe basé sur nom + club
-  let hash = 0;
-  const str = player.name + player.team;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) & 0xffff;
-  }
-  const note = noteMin + (hash % range);
-  return Number.isNaN(note) ? noteMin : note;
+  // Priorité 2 : note codée en dur dans data.js
+  if (player.note !== undefined) return player.note;
+  // Priorité 3 : calcul à partir des sous-stats
+  const stats = getPlayerStats(player);
+  return calculerNoteGenerale(player, stats);
 }
 
 // Retourne le label correspondant à une note
@@ -2277,16 +2346,43 @@ async function renderAdmin() {
           <input type="text" id="note-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
           <select id="note-player-select" class="admin-select" size="8" style="height:200px"></select>
           <div id="note-player-fields" class="hidden">
-            <div class="admin-edit-sep">Modifier la note :</div>
+
+            <div class="admin-edit-sep">Sous-statistiques (30-99) :</div>
+            <div class="admin-stats-grid">
+              <label class="admin-stat-field">
+                <span>⚡ Vitesse</span>
+                <input type="number" id="stat-vitesse-input" class="admin-input" min="30" max="99">
+              </label>
+              <label class="admin-stat-field">
+                <span>💪 Puissance</span>
+                <input type="number" id="stat-puissance-input" class="admin-input" min="30" max="99">
+              </label>
+              <label class="admin-stat-field">
+                <span>🛡️ Défense</span>
+                <input type="number" id="stat-defense-input" class="admin-input" min="30" max="99">
+              </label>
+              <label class="admin-stat-field">
+                <span>🎯 Passe</span>
+                <input type="number" id="stat-passe-input" class="admin-input" min="30" max="99">
+              </label>
+              <label class="admin-stat-field">
+                <span>✨ Technique</span>
+                <input type="number" id="stat-technique-input" class="admin-input" min="30" max="99">
+              </label>
+            </div>
+
+            <div class="admin-edit-sep">Note générale :</div>
             <div class="admin-row" style="align-items:center;gap:1rem">
-              <input type="number" id="note-value-input" class="admin-input" min="60" max="99" placeholder="Note (60-99)" style="max-width:140px">
+              <input type="number" id="note-value-input" class="admin-input" min="30" max="99" placeholder="Auto (calculée)" style="max-width:160px">
               <span id="note-label-preview" style="font-size:0.82rem;color:var(--text-muted)"></span>
             </div>
+            <p class="admin-note" style="margin:0.2rem 0 0.6rem">La note générale est calculée automatiquement à partir des sous-statistiques et du poste principal. Tu peux aussi la forcer manuellement en la saisissant ci-dessus (elle prendra alors le pas sur le calcul).</p>
+
             <button id="admin-save-note-btn" class="admin-btn">💾 Sauvegarder pour tous</button>
-            <button id="admin-reset-note-btn" class="admin-btn" style="background:rgba(255,255,255,0.08);color:var(--text-muted);margin-top:0.3rem">🔄 Réinitialiser (note automatique)</button>
+            <button id="admin-reset-note-btn" class="admin-btn" style="background:rgba(255,255,255,0.08);color:var(--text-muted);margin-top:0.3rem">🔄 Réinitialiser (valeurs automatiques)</button>
             <div id="admin-note-status" class="admin-status"></div>
           </div>
-          <p class="admin-note">⚠️ La note s'applique définitivement pour tous les joueurs via Firestore.</p>
+          <p class="admin-note">⚠️ Les modifications s'appliquent définitivement pour tous les joueurs via Firestore.</p>
         </div>
         <!-- Formulaire modification -->
         <div id="admin-form-edit" class="admin-db-form hidden">
@@ -2325,13 +2421,38 @@ async function renderAdmin() {
           <div id="new-player-clubs-row" class="hidden">
             <input type="text" id="new-player-clubs" class="admin-input" placeholder="Club(s) de carrière — sépare par / (ex: toulouse/toulon)">
           </div>
-          <div class="admin-row">
-            <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
-            <input type="number" id="new-player-note" class="admin-input" min="60" max="99" placeholder="Note (60-99, optionnel)">
+          <input type="text" id="new-player-nat" class="admin-input" placeholder="Nationalité (ex: FRA)">
+
+          <div class="admin-edit-sep">Sous-statistiques (30-99, optionnel) :</div>
+          <div class="admin-stats-grid">
+            <label class="admin-stat-field">
+              <span>⚡ Vitesse</span>
+              <input type="number" id="new-player-stat-vitesse" class="admin-input" min="30" max="99" placeholder="Auto">
+            </label>
+            <label class="admin-stat-field">
+              <span>💪 Puissance</span>
+              <input type="number" id="new-player-stat-puissance" class="admin-input" min="30" max="99" placeholder="Auto">
+            </label>
+            <label class="admin-stat-field">
+              <span>🛡️ Défense</span>
+              <input type="number" id="new-player-stat-defense" class="admin-input" min="30" max="99" placeholder="Auto">
+            </label>
+            <label class="admin-stat-field">
+              <span>🎯 Passe</span>
+              <input type="number" id="new-player-stat-passe" class="admin-input" min="30" max="99" placeholder="Auto">
+            </label>
+            <label class="admin-stat-field">
+              <span>✨ Technique</span>
+              <input type="number" id="new-player-stat-technique" class="admin-input" min="30" max="99" placeholder="Auto">
+            </label>
           </div>
+
+          <div class="admin-edit-sep">Note générale (optionnel) :</div>
+          <input type="number" id="new-player-note" class="admin-input" min="30" max="99" placeholder="Note générale — laisse vide pour calcul automatique">
+
           <button id="admin-add-player-btn" class="admin-btn">Ajouter</button>
           <div id="admin-add-player-status" class="admin-status"></div>
-          <p class="admin-note">⚠️ Ajout en mémoire uniquement. Modification sauvegardée dans Firestore pour tous les joueurs.</p>
+          <p class="admin-note">⚠️ Ajout en mémoire uniquement. Modification sauvegardée dans Firestore pour tous les joueurs. Si tu laisses les sous-stats vides, elles seront générées automatiquement ; la note générale sera alors calculée à partir d'elles selon le poste.</p>
         </div>
         <div id="admin-form-remove" class="admin-db-form hidden">
           <input type="text" id="remove-player-search" class="admin-input" placeholder="🔍 Rechercher un joueur">
@@ -2681,7 +2802,7 @@ function bindAdminEvents() {
     if (clubsRow) clubsRow.classList.toggle("hidden", e.target.value !== "legendaire");
   };
 
-  // Ajouter joueur (prénom + nom + clubs)
+  // Ajouter joueur (prénom + nom + clubs + sous-stats)
   document.getElementById("admin-add-player-btn").onclick = async () => {
     const firstname = document.getElementById("new-player-firstname").value.trim();
     const lastname  = document.getElementById("new-player-lastname").value.trim();
@@ -2691,7 +2812,7 @@ function bindAdminEvents() {
     const positions = document.getElementById("new-player-positions").value.split("|").map(p=>p.trim()).filter(Boolean);
     const nat = document.getElementById("new-player-nat").value.trim() || "FRA";
     const noteInput = parseInt(document.getElementById("new-player-note").value, 10);
-    const customNote = !isNaN(noteInput) && noteInput >= 60 && noteInput <= 99 ? noteInput : null;
+    const customNote = !isNaN(noteInput) && noteInput >= 30 && noteInput <= 99 ? noteInput : null;
     const clubsInput = document.getElementById("new-player-clubs");
     const clubs = (rarity === "legendaire" && clubsInput?.value)
       ? clubsInput.value.split("/").map(c=>c.trim()).filter(Boolean)
@@ -2700,6 +2821,25 @@ function bindAdminEvents() {
 
     if (!name) { st.textContent = "⚠️ Entre un prénom ou un nom."; return; }
     if (!positions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
+
+    // Sous-stats saisies manuellement (si vides → génération auto plus tard)
+    const statInputs = {
+      vitesse:   document.getElementById("new-player-stat-vitesse").value,
+      puissance: document.getElementById("new-player-stat-puissance").value,
+      defense:   document.getElementById("new-player-stat-defense").value,
+      passe:     document.getElementById("new-player-stat-passe").value,
+      technique: document.getElementById("new-player-stat-technique").value
+    };
+    const customStats = {};
+    let hasCustomStats = false;
+    for (const [k, v] of Object.entries(statInputs)) {
+      if (v !== "") {
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < 30 || n > 99) { st.textContent = `⚠️ ${k} doit être entre 30 et 99.`; return; }
+        customStats[k] = n;
+        hasCustomStats = true;
+      }
+    }
 
     const newPlayer = { name, team, positions, rarity, nat };
     if (clubs?.length) newPlayer.clubs = clubs;
@@ -2711,6 +2851,7 @@ function bindAdminEvents() {
       const added = existing.added || [];
       const removed = existing.removed || [];
       const notes = existing.notes || {};
+      const statsMap = existing.stats || {};
 
       const newKey = getCardKey(newPlayer);
       if (added.some(p => getCardKey(p) === newKey)) {
@@ -2720,20 +2861,30 @@ function bindAdminEvents() {
 
       added.push(newPlayer);
 
-      // Sauvegarder la note personnalisée si fournie
+      // Sous-stats personnalisées (fusionnées avec les valeurs auto pour les champs vides)
+      if (hasCustomStats) {
+        const autoStats = generateBaseStats(newPlayer);
+        const finalStats = { ...autoStats, ...customStats };
+        statsMap[newKey] = finalStats;
+        statsOverrides[newKey] = finalStats;
+      }
+
+      // Note générale forcée si fournie
       if (customNote !== null) {
         notes[newKey] = customNote;
         noteOverrides[newKey] = customNote;
       }
 
       await db.collection("playersOverrides").doc("data").set(
-        { ...existing, added, removed, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        { ...existing, added, removed, notes, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
       );
 
       PLAYERS.push(newPlayer);
-      const noteInfo = customNote ? ` — note ${customNote}` : "";
-      st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}${noteInfo}) ajouté pour tous !`;
-      try { await logAdminAction("joueur_ajouté", `${name} — ${TEAMS[team]?.name||team} [${rarity}${noteInfo}]`); } catch(_) {}
+      const displayNote = customNote !== null
+        ? customNote
+        : calculerNoteGenerale(newPlayer, hasCustomStats ? statsOverrides[newKey] : generateBaseStats(newPlayer));
+      st.textContent = `✓ ${name} (${TEAMS[team]?.name||team}, ${rarity}, note ${displayNote}) ajouté pour tous !`;
+      try { await logAdminAction("joueur_ajouté", `${name} — ${TEAMS[team]?.name||team} [${rarity}, note ${displayNote}]`); } catch(_) {}
     } catch(e) {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
@@ -2744,6 +2895,8 @@ function bindAdminEvents() {
     document.getElementById("new-player-positions").value = "";
     document.getElementById("new-player-nat").value = "";
     document.getElementById("new-player-note").value = "";
+    ["new-player-stat-vitesse","new-player-stat-puissance","new-player-stat-defense","new-player-stat-passe","new-player-stat-technique"]
+      .forEach(id => document.getElementById(id).value = "");
     if (clubsInput) clubsInput.value = "";
   };
 
@@ -2848,7 +3001,7 @@ function bindAdminEvents() {
     }
   };
 
-  // === Notes joueurs ===
+  // === Notes joueurs (sous-stats + note générale) ===
   document.getElementById("note-player-search").oninput = (e) => refreshNotePlayerList(e.target.value);
 
   document.getElementById("note-player-select").onchange = () => {
@@ -2856,34 +3009,98 @@ function bindAdminEvents() {
     if (!key) { document.getElementById("note-player-fields").classList.add("hidden"); return; }
     const player = PLAYERS.find(p => `${p.name}|${p.team}` === key);
     if (!player) return;
-    const currentNote = getPlayerNote(player);
-    document.getElementById("note-value-input").value = currentNote;
-    updateNotePreview(currentNote);
+
+    const stats = getPlayerStats(player);
+    document.getElementById("stat-vitesse-input").value = stats.vitesse;
+    document.getElementById("stat-puissance-input").value = stats.puissance;
+    document.getElementById("stat-defense-input").value = stats.defense;
+    document.getElementById("stat-passe-input").value = stats.passe;
+    document.getElementById("stat-technique-input").value = stats.technique;
+
+    // Note générale : si forcée manuellement, l'afficher ; sinon laisser vide (auto)
+    const forcedNote = noteOverrides[key];
+    document.getElementById("note-value-input").value = forcedNote !== undefined ? forcedNote : "";
+    const displayedNote = forcedNote !== undefined ? forcedNote : calculerNoteGenerale(player, stats);
+    updateNotePreview(displayedNote);
+
     document.getElementById("note-player-fields").classList.remove("hidden");
     document.getElementById("admin-note-status").textContent = "";
   };
 
+  // Recalcule la note générale en direct quand une sous-stat change (si note pas forcée)
+  const recomputeLiveNote = () => {
+    const key = document.getElementById("note-player-select").value;
+    const player = PLAYERS.find(p => `${p.name}|${p.team}` === key);
+    if (!player) return;
+    const forcedVal = document.getElementById("note-value-input").value;
+    if (forcedVal !== "") { updateNotePreview(parseInt(forcedVal, 10)); return; }
+    const stats = {
+      vitesse:   parseInt(document.getElementById("stat-vitesse-input").value, 10) || 60,
+      puissance: parseInt(document.getElementById("stat-puissance-input").value, 10) || 60,
+      defense:   parseInt(document.getElementById("stat-defense-input").value, 10) || 60,
+      passe:     parseInt(document.getElementById("stat-passe-input").value, 10) || 60,
+      technique: parseInt(document.getElementById("stat-technique-input").value, 10) || 60
+    };
+    updateNotePreview(calculerNoteGenerale(player, stats));
+  };
+  ["stat-vitesse-input","stat-puissance-input","stat-defense-input","stat-passe-input","stat-technique-input"]
+    .forEach(id => document.getElementById(id).oninput = recomputeLiveNote);
+
   document.getElementById("note-value-input").oninput = (e) => {
-    updateNotePreview(parseInt(e.target.value, 10) || 0);
+    const val = e.target.value;
+    if (val === "") { recomputeLiveNote(); return; }
+    updateNotePreview(parseInt(val, 10) || 0);
   };
 
   document.getElementById("admin-save-note-btn").onclick = async () => {
     const key = document.getElementById("note-player-select").value;
-    const note = parseInt(document.getElementById("note-value-input").value, 10);
     const st = document.getElementById("admin-note-status");
     if (!key) { st.textContent = "⚠️ Sélectionne un joueur."; return; }
-    if (!note || note < 60 || note > 99) { st.textContent = "⚠️ Note entre 60 et 99."; return; }
+
+    const stats = {
+      vitesse:   parseInt(document.getElementById("stat-vitesse-input").value, 10),
+      puissance: parseInt(document.getElementById("stat-puissance-input").value, 10),
+      defense:   parseInt(document.getElementById("stat-defense-input").value, 10),
+      passe:     parseInt(document.getElementById("stat-passe-input").value, 10),
+      technique: parseInt(document.getElementById("stat-technique-input").value, 10)
+    };
+    for (const [k, v] of Object.entries(stats)) {
+      if (isNaN(v) || v < 30 || v > 99) { st.textContent = `⚠️ ${k} doit être entre 30 et 99.`; return; }
+    }
+
+    const forcedNoteVal = document.getElementById("note-value-input").value;
+    const forcedNote = forcedNoteVal !== "" ? parseInt(forcedNoteVal, 10) : null;
+    if (forcedNote !== null && (forcedNote < 30 || forcedNote > 99)) {
+      st.textContent = "⚠️ Note générale doit être entre 30 et 99."; return;
+    }
+
     st.textContent = "Sauvegarde...";
     try {
       const doc = await db.collection("playersOverrides").doc("data").get();
       const existing = doc.exists ? doc.data() : {};
-      const notes = existing.notes || {};
-      notes[key] = note;
-      await db.collection("playersOverrides").doc("data").set({ ...existing, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      noteOverrides[key] = note;
+      const notesMap = existing.notes || {};
+      const statsMap = existing.stats || {};
+
+      statsMap[key] = stats;
+      statsOverrides[key] = stats;
+
+      if (forcedNote !== null) {
+        notesMap[key] = forcedNote;
+        noteOverrides[key] = forcedNote;
+      } else {
+        delete notesMap[key];
+        delete noteOverrides[key];
+      }
+
+      await db.collection("playersOverrides").doc("data").set(
+        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+      );
+
       const playerName = key.split("|")[0];
-      st.textContent = `✓ ${playerName} → note ${note} (${getNoteLabel(note)}) pour tous !`;
-      try { await logAdminAction("note", `${playerName} → ${note} (${getNoteLabel(note)})`); } catch(_) {}
+      const player = PLAYERS.find(p => `${p.name}|${p.team}` === key);
+      const finalNote = forcedNote !== null ? forcedNote : calculerNoteGenerale(player, stats);
+      st.textContent = `✓ ${playerName} → note ${finalNote} (${getNoteLabel(finalNote)}) pour tous !`;
+      try { await logAdminAction("note", `${playerName} → ${finalNote} (${getNoteLabel(finalNote)}) [V:${stats.vitesse} P:${stats.puissance} D:${stats.defense} Pa:${stats.passe} T:${stats.technique}]`); } catch(_) {}
     } catch(e) { st.textContent = `❌ ${e.message}`; }
   };
 
@@ -2895,12 +3112,19 @@ function bindAdminEvents() {
     try {
       const doc = await db.collection("playersOverrides").doc("data").get();
       const existing = doc.exists ? doc.data() : {};
-      const notes = existing.notes || {};
-      delete notes[key];
-      await db.collection("playersOverrides").doc("data").set({ ...existing, notes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const notesMap = existing.notes || {};
+      const statsMap = existing.stats || {};
+      delete notesMap[key];
+      delete statsMap[key];
+      await db.collection("playersOverrides").doc("data").set(
+        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+      );
       delete noteOverrides[key];
+      delete statsOverrides[key];
       const playerName = key.split("|")[0];
-      st.textContent = `✓ ${playerName} → note automatique restaurée.`;
+      st.textContent = `✓ ${playerName} → valeurs automatiques restaurées.`;
+      // Recharger l'affichage avec les valeurs auto
+      document.getElementById("note-player-select").dispatchEvent(new Event("change"));
     } catch(e) { st.textContent = `❌ ${e.message}`; }
   };
 }
@@ -2920,8 +3144,12 @@ function generateDataJsFile() {
     parts.push(`positions: ${JSON.stringify(p.positions || [])}`);
     parts.push(`rarity: ${JSON.stringify(p.rarity)}`);
     parts.push(`nat: ${JSON.stringify(p.nat || "FRA")}`);
-    // Note personnalisée si elle existe
     const key = `${p.name}|${p.team}`;
+    // Sous-stats personnalisées si elles existent
+    if (statsOverrides[key]) {
+      parts.push(`stats: ${JSON.stringify(statsOverrides[key])}`);
+    }
+    // Note générale forcée si elle existe
     if (noteOverrides[key] !== undefined) {
       parts.push(`note: ${noteOverrides[key]}`);
     }
