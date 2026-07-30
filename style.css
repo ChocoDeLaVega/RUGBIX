@@ -477,6 +477,55 @@ html, body {
   width: 100%;
 }
 
+/* ===== SOUS-STATS SUR LES CARTES ===== */
+.card-substats {
+  display: none; /* masquées par défaut sur les petites cartes en grille */
+  width: 100%;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  gap: 0.15rem;
+}
+
+.zoomed-card .card-substats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.card-substat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.substat-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--card-text-muted);
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+}
+
+.substat-value {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--card-text);
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* Sur carte légende (fond sombre), texte clair */
+.card.legendaire.zoomed-card .substat-label {
+  color: rgba(240,240,240,0.6);
+}
+.card.legendaire.zoomed-card .substat-value {
+  color: #f0f0f0;
+}
+.card.legendaire.zoomed-card .card-substats {
+  border-top-color: rgba(255,255,255,0.15);
+}
+
 .nat-flag-img {
   width: 20px;
   height: 15px;
@@ -2462,6 +2511,50 @@ textarea.contact-input {
   line-height: 1.3;
 }
 
+/* ===== PANNEAU APERÇU CARTE (Mon Équipe) ===== */
+.equipe-preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1.2rem 1rem;
+  min-width: 200px;
+  align-self: stretch;
+  align-items: center;
+}
+
+.equipe-preview-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.equipe-preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+}
+
+.equipe-preview-content .zoomed-card {
+  margin: 0;
+}
+
+.equipe-preview-empty {
+  color: rgba(255,255,255,0.35);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 1.5rem 0.5rem;
+  line-height: 1.5;
+}
+
 /* ===== NOTE JOUEUR SUR LA CARTE ===== */
 /* ===== NOTES JOUEURS — DESIGN PREMIUM ===== */
 
@@ -2834,6 +2927,17 @@ textarea.contact-input {
   }
 
   .remplacant-slot { width: 78px !important; }
+
+  .equipe-preview-panel {
+    width: 100%;
+    min-width: unset;
+    box-sizing: border-box;
+    align-self: auto;
+  }
+
+  .equipe-preview-content .zoomed-card {
+    width: 180px;
+  }
 
   /* ── Auth screen ── */
   .auth-box {

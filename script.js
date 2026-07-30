@@ -1653,6 +1653,17 @@ function buildCardElement(player, count = null, options = {}) {
   const isLocked = (options.lockedCount || 0) > 0;
   const note = getPlayerNote(player);
   const noteColor = getNoteColor(note);
+  const stats = getPlayerStats(player);
+
+  const statsHtml = `
+    <div class="card-substats">
+      <div class="card-substat"><span class="substat-label">VIT</span><span class="substat-value">${stats.vitesse}</span></div>
+      <div class="card-substat"><span class="substat-label">PUI</span><span class="substat-value">${stats.puissance}</span></div>
+      <div class="card-substat"><span class="substat-label">DEF</span><span class="substat-value">${stats.defense}</span></div>
+      <div class="card-substat"><span class="substat-label">PAS</span><span class="substat-value">${stats.passe}</span></div>
+      <div class="card-substat"><span class="substat-label">TEC</span><span class="substat-value">${stats.technique}</span></div>
+    </div>
+  `;
 
   card.innerHTML = `
     <div class="card-avatar ${avatarClass}" ${avatarStyle}>
@@ -1667,6 +1678,7 @@ function buildCardElement(player, count = null, options = {}) {
       <span class="card-rarity ${player.rarity}">${RARITIES[player.rarity]?.label || "?"}</span>
       ${count !== null ? `<div class="card-count">x${count}</div>` : ""}
       <p class="card-nationality"><span class="nat-flag">${getFlagEmoji(natCode)}</span><span class="nat-code">${getNatLabel(natCode)}</span></p>
+      ${statsHtml}
     </div>
   `;
 
@@ -1925,6 +1937,7 @@ const RARITY_RANK = { legendaire: 5, international: 4, epique: 3, rare: 2, commu
 
 // Stockage de la compo en cours
 let equipe = {}; // { slotId: player }
+let lastClickedSlotId = null; // dernier poste cliqué, pour l'aperçu à droite
 let currentSlotId = null;
 
 function renderEquipe() {
@@ -1978,7 +1991,25 @@ function renderEquipe() {
   });
 
   wrapper.appendChild(remplPanel);
+
+  // === APERÇU CARTE SÉLECTIONNÉE (panneau droit) ===
+  const previewPanel = document.createElement("div");
+  previewPanel.className = "equipe-preview-panel";
+  previewPanel.id = "equipe-preview-panel";
+  previewPanel.innerHTML = `
+    <div class="equipe-preview-title">Aperçu</div>
+    <div id="equipe-preview-content" class="equipe-preview-content">
+      <div class="equipe-preview-empty">Clique sur un poste pour voir la carte du joueur sélectionné</div>
+    </div>
+  `;
+  wrapper.appendChild(previewPanel);
+
   container.appendChild(wrapper);
+
+  // Afficher automatiquement l'aperçu du dernier slot cliqué s'il est rempli
+  if (lastClickedSlotId && equipe[lastClickedSlotId]) {
+    updateEquipePreview(equipe[lastClickedSlotId]);
+  }
 
   // Boutons banc 5-3 / 6-2 / 7-1
   ["5-3", "6-2", "7-1"].forEach(bancKey => {
@@ -2001,6 +2032,7 @@ function renderEquipe() {
   document.getElementById("compo-type-btn").onclick = doCompoType;
   document.getElementById("reset-equipe-btn").onclick = () => {
     equipe = {};
+    lastClickedSlotId = null;
     renderEquipe();
     saveData();
   };
@@ -2025,8 +2057,26 @@ function buildPitchSlot(slot, player) {
     `;
   }
 
-  el.addEventListener("click", () => openPlayerSelect(slot));
+  el.addEventListener("click", () => {
+    lastClickedSlotId = slot.id;
+    if (player) updateEquipePreview(player);
+    openPlayerSelect(slot);
+  });
   return el;
+}
+
+// Met à jour le panneau d'aperçu à droite avec la carte complète (+ sous-stats) du joueur
+function updateEquipePreview(player) {
+  const content = document.getElementById("equipe-preview-content");
+  if (!content) return;
+  content.innerHTML = "";
+
+  const entry = getEntry(getCardKey(player));
+  const cardEl = buildCardElement(player, entry.count > 0 ? entry.count : null, {
+    lockedCount: entry.lockedCount || 0
+  });
+  cardEl.classList.add("zoomed-card"); // révèle les sous-stats via le CSS existant
+  content.appendChild(cardEl);
 }
 
 function buildMiniCard(player, slot) {
