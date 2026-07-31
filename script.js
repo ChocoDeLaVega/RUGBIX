@@ -1223,7 +1223,10 @@ function generateBaseStats(player) {
   const noteMin = rarity?.noteMin ?? 60;
   const noteMax = rarity?.noteMax ?? 79;
   const center = (noteMin + noteMax) / 2;
-  const spread = Math.max(8, (noteMax - noteMin) / 2 + 10); // dispersion autour du centre
+  // Dispersion proportionnelle à la fourchette de la rareté, pour garantir une vraie
+  // séparation entre paliers (une Commune ne doit jamais approcher une Légende).
+  const rarityWidth = noteMax - noteMin; // large pour commune (19), étroit pour légende (2)
+  const spread = Math.max(6, Math.round(rarityWidth * 0.9));
 
   const str = player.name + player.team;
   const stats = {};
@@ -1774,6 +1777,33 @@ function openCardDetail(player, count) {
   document.getElementById("card-detail-modal").classList.remove("hidden");
 }
 
+// Aperçu zoomé depuis l'Album — même modale que Mon Club, sans les contrôles de vente
+function openAlbumDetail(player, owned) {
+  currentDetailKey = getCardKey(player);
+  currentDetailQty = 1;
+
+  const container = document.getElementById("card-detail-container");
+  container.innerHTML = "";
+
+  const entry = getEntry(currentDetailKey);
+  const cardEl = buildCardElement(player, owned ? entry.count : null, { lockedCount: entry.lockedCount || 0 });
+  cardEl.classList.add("zoomed-card");
+
+  if (owned) {
+    const badge = document.createElement("span");
+    badge.className = "album-owned-badge";
+    badge.textContent = "Effectif";
+    cardEl.appendChild(badge);
+  }
+
+  container.appendChild(cardEl);
+
+  // Pas de vente possible depuis l'Album — masquer les contrôles
+  document.querySelector(".sell-controls").classList.add("hidden");
+
+  document.getElementById("card-detail-modal").classList.remove("hidden");
+}
+
 function updateCardDetailControls() {
   const entry = getEntry(currentDetailKey);
   const lockedCount = entry.lockedCount || 0;
@@ -1992,7 +2022,7 @@ function renderEquipe() {
 
   wrapper.appendChild(remplPanel);
 
-  // === APERÇU CARTE SÉLECTIONNÉE (panneau droit) ===
+  // === APERÇU CARTE SÉLECTIONNÉE (panneau) ===
   const previewPanel = document.createElement("div");
   previewPanel.className = "equipe-preview-panel";
   previewPanel.id = "equipe-preview-panel";
@@ -2003,6 +2033,19 @@ function renderEquipe() {
     </div>
   `;
   wrapper.appendChild(previewPanel);
+
+  // === SÉLECTION DE JOUEUR (panneau, à droite de l'aperçu) ===
+  const selectPanel = document.createElement("div");
+  selectPanel.className = "equipe-select-panel hidden";
+  selectPanel.id = "equipe-select-panel";
+  selectPanel.innerHTML = `
+    <div class="equipe-select-header">
+      <span id="player-select-title" class="equipe-select-title"></span>
+      <button id="close-player-select-btn" class="close-x-btn" aria-label="Fermer">✕</button>
+    </div>
+    <div id="player-select-list" class="player-select-list"></div>
+  `;
+  wrapper.appendChild(selectPanel);
 
   container.appendChild(wrapper);
 
@@ -2116,7 +2159,8 @@ function buildMiniCard(player, slot) {
 // SÉLECTION DE JOUEUR
 // ---------------------------------------------------------
 function setupPlayerSelectModal() {
-  document.getElementById("close-player-select-btn").onclick = closePlayerSelect;
+  const closeBtn = document.getElementById("close-player-select-btn");
+  if (closeBtn) closeBtn.onclick = closePlayerSelect;
 }
 
 function openPlayerSelect(slot) {
@@ -2185,7 +2229,12 @@ function openPlayerSelect(slot) {
 
   renderPlayerSelectList(eligible, slot, "all");
 
-  document.getElementById("player-select-modal").classList.remove("hidden");
+  // Afficher le panneau de sélection (à droite de l'aperçu, pas de modale)
+  const panel = document.getElementById("equipe-select-panel");
+  if (panel) {
+    panel.classList.remove("hidden");
+    setupPlayerSelectModal();
+  }
 }
 
 function renderPlayerSelectList(eligible, slot, clubFilter) {
@@ -2238,7 +2287,8 @@ function buildPlayerSelectRow(player, slot) {
 }
 
 function closePlayerSelect() {
-  document.getElementById("player-select-modal").classList.add("hidden");
+  const panel = document.getElementById("equipe-select-panel");
+  if (panel) panel.classList.add("hidden");
   currentSlotId = null;
 }
 
