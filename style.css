@@ -2555,6 +2555,54 @@ textarea.contact-input {
   line-height: 1.5;
 }
 
+/* ===== PANNEAU SÉLECTION JOUEUR (Mon Équipe) — inline, plus de modale ===== */
+.equipe-select-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  flex-shrink: 0;
+  background: #f2f4f8;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1rem 0.9rem;
+  min-width: 280px;
+  max-width: 320px;
+  align-self: stretch;
+  color: #1a1a2e;
+}
+
+.equipe-select-panel.hidden {
+  display: none;
+}
+
+.equipe-select-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding-bottom: 0.6rem;
+}
+
+.equipe-select-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.equipe-select-panel .close-x-btn {
+  position: static;
+  flex-shrink: 0;
+}
+
+.equipe-select-panel .player-select-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+
 /* ===== NOTE JOUEUR SUR LA CARTE ===== */
 /* ===== NOTES JOUEURS — DESIGN PREMIUM ===== */
 
@@ -2937,6 +2985,18 @@ textarea.contact-input {
 
   .equipe-preview-content .zoomed-card {
     width: 180px;
+  }
+
+  .equipe-select-panel {
+    width: 100%;
+    min-width: unset;
+    max-width: unset;
+    box-sizing: border-box;
+    align-self: auto;
+  }
+
+  .equipe-select-panel .player-select-list {
+    max-height: 50vh;
   }
 
   /* ── Auth screen ── */
