@@ -1148,27 +1148,29 @@ html, body {
 .pitch {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.6rem;
   background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MDAgNjQwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBzbGljZSI+CjxkZWZzPgogIDxwYXR0ZXJuIGlkPSJnYXpvbiIgeD0iMCIgeT0iMCIgd2lkdGg9IjgwMCIgaGVpZ2h0PSI1NiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICA8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjI4IiBmaWxsPSIjMmQ3YTJkIi8+CiAgICA8cmVjdCB5PSIyOCIgd2lkdGg9IjgwMCIgaGVpZ2h0PSIyOCIgZmlsbD0iIzI3NmMyNyIvPgogIDwvcGF0dGVybj4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRsIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMCI+CiAgICA8c3RvcCBvZmZzZXQ9IjAlIiAgIHN0b3AtY29sb3I9IiMxYzFjMWMiLz4KICAgIDxzdG9wIG9mZnNldD0iNjAlIiAgc3RvcC1jb2xvcj0iIzQ0NCIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjNTU1Ii8+CiAgPC9saW5lYXJHcmFkaWVudD4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRyIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMCI+CiAgICA8c3RvcCBvZmZzZXQ9IjAlIiAgIHN0b3AtY29sb3I9IiM1NTUiLz4KICAgIDxzdG9wIG9mZnNldD0iNDAlIiAgc3RvcC1jb2xvcj0iIzQ0NCIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMWMxYzFjIi8+CiAgPC9saW5lYXJHcmFkaWVudD4KICA8bGluZWFyR3JhZGllbnQgaWQ9InRvaXRfZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgPHN0b3Agb2Zmc2V0PSIwJSIgIHN0b3AtY29sb3I9IiMxMTEiLz4KICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzMzMyIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJ0b2l0X2QiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj4KICAgIDxzdG9wIG9mZnNldD0iMCUiICBzdG9wLWNvbG9yPSIjMTExIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMzMzMiLz4KICA8L2xpbmVhckdyYWRpZW50PgogIDxyYWRpYWxHcmFkaWVudCBpZD0ic3BvdCIgY3g9IjUwJSIgY3k9IjAlIiByPSI4MCUiPgogICAgPHN0b3Agb2Zmc2V0PSIwJSIgIHN0b3AtY29sb3I9InJnYmEoMjU1LDI0MCwyMDAsMC4xMikiLz4KICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0icmdiYSgwLDAsMCwwKSIvPgogIDwvcmFkaWFsR3JhZGllbnQ+CiAgPHJhZGlhbEdyYWRpZW50IGlkPSJmaWVsZF9saWdodCIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj4KICAgIDxzdG9wIG9mZnNldD0iMCUiICAgc3RvcC1jb2xvcj0icmdiYSgyNTUsMjU1LDI1NSwwLjA0KSIvPgogICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSJyZ2JhKDAsMCwwLDApIi8+CiAgPC9yYWRpYWxHcmFkaWVudD4KPC9kZWZzPgoKPCEtLSBQZWxvdXNlIC0tPgo8cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjY0MCIgZmlsbD0idXJsKCNnYXpvbikiLz4KCjwhLS0gVHJpYnVuZSBnYXVjaGUgLS0+Cjxwb2x5Z29uIHBvaW50cz0iMCwwIDg4LDU1IDg4LDU5MCAwLDY0MCIgZmlsbD0idXJsKCN0bCkiLz4KPGcgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTIpIiBzdHJva2Utd2lkdGg9IjEuMiIgZmlsbD0ibm9uZSI+CiAgPGxpbmUgeDE9IjAiIHkxPSI1OCIgIHgyPSI4OCIgeTI9IjgyIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSIxMTAiIHgyPSI4OCIgeTI9IjEyOCIvPgogIDxsaW5lIHgxPSIwIiB5MT0iMTYyIiB4Mj0iODgiIHkyPSIxNzQiLz4KICA8bGluZSB4MT0iMCIgeTE9IjIxNCIgeDI9Ijg4IiB5Mj0iMjIwIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSIyNjYiIHgyPSI4OCIgeTI9IjI2NiIvPgogIDxsaW5lIHgxPSIwIiB5MT0iMzIwIiB4Mj0iODgiIHkyPSIzMjAiLz4KICA8bGluZSB4MT0iMCIgeTE9IjM3NCIgeDI9Ijg4IiB5Mj0iMzc0Ii8+CiAgPGxpbmUgeDE9IjAiIHkxPSI0MjYiIHgyPSI4OCIgeTI9IjQyMCIvPgogIDxsaW5lIHgxPSIwIiB5MT0iNDc4IiB4Mj0iODgiIHkyPSI0NjYiLz4KICA8bGluZSB4MT0iMCIgeTE9IjUzMCIgeDI9Ijg4IiB5Mj0iNTEyIi8+CiAgPGxpbmUgeDE9IjAiIHkxPSI1ODIiIHgyPSI4OCIgeTI9IjU1OCIvPgo8L2c+CjxnIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA3KSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIj4KICA8bGluZSB4MT0iMjAiIHkxPSIwIiB4Mj0iNzAiIHkyPSI2NDAiLz4KICA8bGluZSB4MT0iNTAiIHkxPSIwIiB4Mj0iODAiIHkyPSI2NDAiLz4KPC9nPgo8ZWxsaXBzZSBjeD0iNDQiIGN5PSIwIiByeD0iNTAiIHJ5PSI4MCIgZmlsbD0idXJsKCNzcG90KSIvPgo8cG9seWdvbiBwb2ludHM9IjAsMCA4OCw1NSA4OCwzMiAwLDAiIGZpbGw9InVybCgjdG9pdF9nKSIvPgo8bGluZSB4MT0iMCIgeTE9IjAiIHgyPSI4OCIgeTI9IjU1IiBzdHJva2U9InJnYmEoMTgwLDE4MCwxODAsMC40KSIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIwIiB5MT0iMiIgeDI9Ijg4IiB5Mj0iNTciIHN0cm9rZT0icmdiYSgyMDAsNTAsNTAsMC4zNSkiIHN0cm9rZS13aWR0aD0iNCIvPgoKPCEtLSBUcmlidW5lIGRyb2l0ZSAtLT4KPHBvbHlnb24gcG9pbnRzPSI4MDAsMCA3MTIsNTUgNzEyLDU5MCA4MDAsNjQwIiBmaWxsPSJ1cmwoI3RyKSIvPgo8ZyBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4xMikiIHN0cm9rZS13aWR0aD0iMS4yIiBmaWxsPSJub25lIj4KICA8bGluZSB4MT0iODAwIiB5MT0iNTgiICB4Mj0iNzEyIiB5Mj0iODIiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iMTEwIiB4Mj0iNzEyIiB5Mj0iMTI4Ii8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjE2MiIgeDI9IjcxMiIgeTI9IjE3NCIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSIyMTQiIHgyPSI3MTIiIHkyPSIyMjAiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iMjY2IiB4Mj0iNzEyIiB5Mj0iMjY2Ii8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjMyMCIgeDI9IjcxMiIgeTI9IjMyMCIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSIzNzQiIHgyPSI3MTIiIHkyPSIzNzQiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iNDI2IiB4Mj0iNzEyIiB5Mj0iNDIwIi8+CiAgPGxpbmUgeDE9IjgwMCIgeTE9IjQ3OCIgeDI9IjcxMiIgeTI9IjQ2NiIvPgogIDxsaW5lIHgxPSI4MDAiIHkxPSI1MzAiIHgyPSI3MTIiIHkyPSI1MTIiLz4KICA8bGluZSB4MT0iODAwIiB5MT0iNTgyIiB4Mj0iNzEyIiB5Mj0iNTU4Ii8+CjwvZz4KPGcgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDcpIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiPgogIDxsaW5lIHgxPSI3ODAiIHkxPSIwIiB4Mj0iNzMwIiB5Mj0iNjQwIi8+CiAgPGxpbmUgeDE9Ijc1MCIgeTE9IjAiIHgyPSI3MjAiIHkyPSI2NDAiLz4KPC9nPgo8ZWxsaXBzZSBjeD0iNzU2IiBjeT0iMCIgcng9IjUwIiByeT0iODAiIGZpbGw9InVybCgjc3BvdCkiLz4KPHBvbHlnb24gcG9pbnRzPSI4MDAsMCA3MTIsNTUgNzEyLDMyIDgwMCwwIiBmaWxsPSJ1cmwoI3RvaXRfZCkiLz4KPGxpbmUgeDE9IjgwMCIgeTE9IjAiIHgyPSI3MTIiIHkyPSI1NSIgc3Ryb2tlPSJyZ2JhKDE4MCwxODAsMTgwLDAuNCkiIHN0cm9rZS13aWR0aD0iMiIvPgo8bGluZSB4MT0iODAwIiB5MT0iMiIgeDI9IjcxMiIgeTI9IjU3IiBzdHJva2U9InJnYmEoMjAwLDUwLDUwLDAuMzUpIiBzdHJva2Utd2lkdGg9IjQiLz4KCjwhLS0gPT09PT0gTElHTkVTIERVIFRFUlJBSU4gPT09PT0gLS0+CjwhLS0gQm9yZHVyZSBleHTDqXJpZXVyZSAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjUzMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNzUpIiBzdHJva2Utd2lkdGg9IjIuNSIvPgoKPCEtLSBab25lIGQgZW4tYnV0IGhhdXQgKHRvdXQgZW4gaGF1dCwgYXUtZGVzc3VzIGRlcyBqb3VldXJzKSAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjYyIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDYpIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC42KSIgc3Ryb2tlLXdpZHRoPSIyIi8+Cgo8IS0tIFpvbmUgZCBlbi1idXQgYmFzICh0b3V0IGVuIGJhcykgLS0+CjxyZWN0IHg9Ijg4IiB5PSI1MjMiIHdpZHRoPSI2MjQiIGhlaWdodD0iNjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNikiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjYpIiBzdHJva2Utd2lkdGg9IjIiLz4KCjwhLS0gTGlnbmUgMjJtIEhBVVQg4oCUIGVudHJlIEFycmnDqHJlIGV0IHJhbmfDqWUgQWlsaWVycy9DZW50cmVzIChkYW5zIGwgZXNwYWNlIGxpYnJlKSAtLT4KPGxpbmUgeDE9Ijg4IiB5MT0iMTU1IiB4Mj0iNzEyIiB5Mj0iMTU1IiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC41NSkiIHN0cm9rZS13aWR0aD0iMiIvPgoKPCEtLSBMaWduZSBNw4lESUFORSDigJQgZW50cmUgcmFuZ8OpZSBEZW1pcyBldCByYW5nw6llIDNlIGxpZ25lIChlc3BhY2UgbGlicmUpIC0tPgo8bGluZSB4MT0iODgiIHkxPSIyOTIiIHgyPSI3MTIiIHkyPSIyOTIiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjc1KSIgc3Ryb2tlLXdpZHRoPSIzIi8+Cgo8IS0tIExpZ25lIDIybSBCQVMg4oCUIGVudHJlIHJhbmfDqWUgM2UgbGlnbmUgZXQgcmFuZ8OpZSAyZSBsaWduZSAoZXNwYWNlIGxpYnJlKSAtLT4KPGxpbmUgeDE9Ijg4IiB5MT0iNDMwIiB4Mj0iNzEyIiB5Mj0iNDMwIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC41NSkiIHN0cm9rZS13aWR0aD0iMiIvPgoKPCEtLSBQb2ludHMgZGUgcMOpbmFsaXTDqSAtLT4KPGNpcmNsZSBjeD0iNDAwIiBjeT0iMTQyIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNTUpIi8+CjxjaXJjbGUgY3g9IjQwMCIgY3k9IjQ0MyIgcj0iNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjU1KSIvPgoKPCEtLSBSZXDDqHJlIGNlbnRyZSAoY3JvaXggZGlzY3LDqHRlKSAtLT4KPGxpbmUgeDE9IjM5NCIgeTE9IjI4OCIgeDI9IjQwNiIgeTI9IjI4OCIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNjUpIiBzdHJva2Utd2lkdGg9IjIiLz4KPGxpbmUgeDE9IjQwMCIgeTE9IjI4MiIgeDI9IjQwMCIgeTI9IjI5OCIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuNjUpIiBzdHJva2Utd2lkdGg9IjIiLz4KCjwhLS0gTHVtacOocmUgY2VudHJhbGUgZHUgdGVycmFpbiAtLT4KPHJlY3QgeD0iODgiIHk9IjU1IiB3aWR0aD0iNjI0IiBoZWlnaHQ9IjUzMCIgZmlsbD0idXJsKCNmaWVsZF9saWdodCkiLz4KPC9zdmc+') center center / cover no-repeat;
   border-radius: 12px;
-  padding: 1.5rem 1.2rem;
+  padding: 0.9rem 0.7rem;
   border: 4px solid rgba(255,255,255,0.18);
   box-shadow: inset 0 0 50px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
-  min-width: 500px;
+  min-width: 0px;
+  width: 100%;
+  max-width: 460px;
   position: relative;
 }
 
 .pitch-row {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.5rem;
   flex-wrap: nowrap;
 }
 
 /* ===== SLOT (poste vide) ===== */
 .pitch-slot {
-  width: 130px;
-  min-height: 105px;
+  width: 96px;
+  min-height: 78px;
   cursor: pointer;
   border-radius: 8px;
   transition: transform 0.15s ease;
@@ -1214,7 +1216,7 @@ html, body {
 }
 
 .mini-card {
-  width: 130px;
+  width: 96px;
   border-radius: 8px;
   overflow: hidden;
   border: 2px solid #9e9e9e;
@@ -1233,11 +1235,11 @@ html, body {
 }
 
 .mini-card-header {
-  height: 42px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 0.85rem;
   position: relative;
   color: white;
 }
@@ -1259,7 +1261,7 @@ html, body {
 .mini-card.legendaire .mini-num { color: #1a1a1a; }
 
 .mini-card-body {
-  padding: 0.3rem 0.35rem;
+  padding: 0.25rem 0.28rem;
   background: white;
 }
 
@@ -1269,17 +1271,17 @@ html, body {
 }
 
 .mini-name {
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: bold;
   color: #1a1a1a;
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .mini-team {
-  font-size: 0.55rem;
+  font-size: 0.48rem;
   color: #666;
   white-space: nowrap;
   overflow: hidden;
@@ -1287,9 +1289,9 @@ html, body {
 }
 
 .mini-pos {
-  font-size: 0.52rem;
+  font-size: 0.45rem;
   color: #888;
-  margin-top: 0.1rem;
+  margin-top: 0.08rem;
 }
 
 /* ===== MODALE SÉLECTION JOUEUR ===== */
@@ -2466,63 +2468,83 @@ textarea.contact-input {
 }
 
 /* ===== REMPLAÇANTS ===== */
+/* ===== LAYOUT PRINCIPAL MON ÉQUIPE ===== */
 .equipe-wrapper {
   display: flex;
-  align-items: flex-start;
-  gap: 1.2rem;
+  align-items: stretch;
+  gap: 1rem;
   width: 100%;
-  overflow-x: auto;
+  min-height: calc(100vh - 260px);
 }
 
+/* Colonne gauche : terrain + remplaçants, empilés */
+.equipe-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  flex: 0 0 auto;
+}
+
+/* Colonne droite : aperçu + sélection côte à côte, étirés en hauteur */
+.equipe-right-col {
+  display: flex;
+  gap: 0.8rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Remplaçants — grille 4×2, horizontale, sous le terrain */
 .remplacants-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  flex-shrink: 0;
+  gap: 0.6rem;
   background: rgba(0,0,0,0.25);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
-  padding: 1.2rem 1rem;
-  min-width: 140px;
-  align-self: stretch;
-  justify-content: center;
+  padding: 0.8rem 0.7rem;
+  width: 100%;
+  max-width: 460px;
+  box-sizing: border-box;
 }
 
 .remplacants-title {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   letter-spacing: 0.08em;
   color: rgba(255,255,255,0.6);
   text-align: center;
-  margin-bottom: 0.3rem;
   text-transform: uppercase;
 }
 
+.remplacants-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
 .remplacant-slot {
-  width: 110px !important;
-  min-height: 90px;
+  width: 100% !important;
+  min-height: 66px;
 }
 
 /* Label remplaçant sur 2 lignes */
 .remplacant-slot .slot-label {
   white-space: pre-line;
   text-align: center;
-  font-size: 0.55rem;
-  line-height: 1.3;
+  font-size: 0.5rem;
+  line-height: 1.2;
 }
 
-/* ===== PANNEAU APERÇU CARTE (Mon Équipe) ===== */
+/* ===== PANNEAU APERÇU CARTE (Mon Équipe) — étiré jusqu'en bas ===== */
 .equipe-preview-panel {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  flex-shrink: 0;
+  flex: 0 0 220px;
   background: rgba(0,0,0,0.25);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
-  padding: 1.2rem 1rem;
-  min-width: 200px;
-  align-self: stretch;
+  padding: 1rem 0.9rem;
   align-items: center;
 }
 
@@ -2537,14 +2559,17 @@ textarea.contact-input {
 
 .equipe-preview-content {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
   flex: 1;
+  padding-top: 0.5rem;
 }
 
 .equipe-preview-content .zoomed-card {
   margin: 0;
+  width: 100%;
+  max-width: 190px;
 }
 
 .equipe-preview-empty {
@@ -2555,19 +2580,17 @@ textarea.contact-input {
   line-height: 1.5;
 }
 
-/* ===== PANNEAU SÉLECTION JOUEUR (Mon Équipe) — inline, plus de modale ===== */
+/* ===== PANNEAU SÉLECTION JOUEUR (Mon Équipe) — inline, étiré jusqu'en bas ===== */
 .equipe-select-panel {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   background: #f2f4f8;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
   padding: 1rem 0.9rem;
-  min-width: 280px;
-  max-width: 320px;
-  align-self: stretch;
   color: #1a1a2e;
 }
 
@@ -2582,6 +2605,7 @@ textarea.contact-input {
   gap: 0.5rem;
   border-bottom: 1px solid rgba(0,0,0,0.08);
   padding-bottom: 0.6rem;
+  flex-shrink: 0;
 }
 
 .equipe-select-title {
@@ -2598,7 +2622,7 @@ textarea.contact-input {
 }
 
 .equipe-select-panel .player-select-list {
-  max-height: 60vh;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -2943,10 +2967,21 @@ textarea.contact-input {
   .equipe-wrapper {
     flex-direction: column;
     gap: 0.8rem;
+    min-height: unset;
+  }
+
+  .equipe-left-col,
+  .equipe-right-col {
+    width: 100%;
+  }
+
+  .equipe-right-col {
+    flex-direction: column;
   }
 
   .pitch {
     min-width: unset;
+    max-width: unset;
     width: 100%;
     padding: 0.8rem 0.4rem;
     box-sizing: border-box;
@@ -2965,34 +3000,33 @@ textarea.contact-input {
   .mini-note { width: 16px; height: 16px; font-size: 0.55rem; }
 
   .remplacants-panel {
-    flex-direction: row;
     width: 100%;
-    justify-content: center;
-    align-self: auto;
-    flex-wrap: wrap;
-    padding: 0.6rem;
+    max-width: unset;
     box-sizing: border-box;
   }
 
-  .remplacant-slot { width: 78px !important; }
+  .remplacants-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.3rem;
+  }
+
+  .remplacant-slot { min-height: 60px; }
+  .remplacant-slot .slot-label { font-size: 0.42rem; }
 
   .equipe-preview-panel {
     width: 100%;
-    min-width: unset;
+    flex: 0 0 auto;
     box-sizing: border-box;
-    align-self: auto;
   }
 
   .equipe-preview-content .zoomed-card {
     width: 180px;
+    max-width: 180px;
   }
 
   .equipe-select-panel {
     width: 100%;
-    min-width: unset;
-    max-width: unset;
     box-sizing: border-box;
-    align-self: auto;
   }
 
   .equipe-select-panel .player-select-list {
@@ -3052,7 +3086,8 @@ textarea.contact-input {
   .pitch-slot { width: 60px; min-height: 60px; }
   .mini-card { width: 60px; }
   .mini-card-header { height: 30px; }
-  .remplacant-slot { width: 68px !important; }
+  .remplacants-grid { grid-template-columns: repeat(4, 1fr); gap: 0.25rem; }
+  .remplacant-slot { min-height: 54px; }
   .modal-content { padding: 0.8rem 0.5rem; }
 }
 

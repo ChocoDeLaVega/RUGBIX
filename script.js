@@ -1977,7 +1977,11 @@ function renderEquipe() {
   const wrapper = document.createElement("div");
   wrapper.className = "equipe-wrapper";
 
-  // === TERRAIN ===
+  // === COLONNE GAUCHE : TERRAIN + REMPLAÇANTS ===
+  const leftCol = document.createElement("div");
+  leftCol.className = "equipe-left-col";
+
+  // Terrain
   const pitch = document.createElement("div");
   pitch.className = "pitch";
 
@@ -2001,9 +2005,9 @@ function renderEquipe() {
     pitch.appendChild(row);
   });
 
-  wrapper.appendChild(pitch);
+  leftCol.appendChild(pitch);
 
-  // === REMPLAÇANTS (panneau latéral, selon banc sélectionné) ===
+  // Remplaçants — 2 lignes de 4, horizontal, sous le terrain
   const remplPanel = document.createElement("div");
   remplPanel.className = "remplacants-panel";
 
@@ -2012,17 +2016,24 @@ function renderEquipe() {
   remplTitle.textContent = `Remplaçants (${currentBanc})`;
   remplPanel.appendChild(remplTitle);
 
+  const remplGrid = document.createElement("div");
+  remplGrid.className = "remplacants-grid";
   const remplSlots = getBancSlots();
   remplSlots.forEach(slot => {
     const player = equipe[slot.id] || null;
     const slotEl = buildPitchSlot(slot, player);
     slotEl.classList.add("remplacant-slot");
-    remplPanel.appendChild(slotEl);
+    remplGrid.appendChild(slotEl);
   });
+  remplPanel.appendChild(remplGrid);
 
-  wrapper.appendChild(remplPanel);
+  leftCol.appendChild(remplPanel);
+  wrapper.appendChild(leftCol);
 
-  // === APERÇU CARTE SÉLECTIONNÉE (panneau) ===
+  // === COLONNE DROITE : APERÇU + SÉLECTION ===
+  const rightCol = document.createElement("div");
+  rightCol.className = "equipe-right-col";
+
   const previewPanel = document.createElement("div");
   previewPanel.className = "equipe-preview-panel";
   previewPanel.id = "equipe-preview-panel";
@@ -2032,9 +2043,8 @@ function renderEquipe() {
       <div class="equipe-preview-empty">Clique sur un poste pour voir la carte du joueur sélectionné</div>
     </div>
   `;
-  wrapper.appendChild(previewPanel);
+  rightCol.appendChild(previewPanel);
 
-  // === SÉLECTION DE JOUEUR (panneau, à droite de l'aperçu) ===
   const selectPanel = document.createElement("div");
   selectPanel.className = "equipe-select-panel hidden";
   selectPanel.id = "equipe-select-panel";
@@ -2045,7 +2055,9 @@ function renderEquipe() {
     </div>
     <div id="player-select-list" class="player-select-list"></div>
   `;
-  wrapper.appendChild(selectPanel);
+  rightCol.appendChild(selectPanel);
+
+  wrapper.appendChild(rightCol);
 
   container.appendChild(wrapper);
 
