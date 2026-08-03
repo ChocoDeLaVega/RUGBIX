@@ -713,11 +713,11 @@ const LEGENDS = [
 PLAYERS.push(...LEGENDS);
 
 const RARITIES = {
-  commune:       { label: "Commune",       color: "#9e9e9e", weight: 60, sellValue: 5,   noteMin: 60, noteMax: 79 },
-  rare:          { label: "Rare",          color: "#05DF72", weight: 27, sellValue: 20,  noteMin: 80, noteMax: 89 },
-  epique:        { label: "Épique",        color: "#9c27b0", weight: 10, sellValue: 75,  noteMin: 90, noteMax: 93 },
-  international: { label: "International", color: "#1a1a2e", weight: 3,  sellValue: 200, noteMin: 94, noteMax: 96 },
-  legendaire:    { label: "Légende",       color: "#ffd700", weight: 0,  sellValue: 500, noteMin: 97, noteMax: 99 }
+  commune:       { label: "Commune",       color: "#9e9e9e", weight: 60, sellValue: 5,   noteMin: 40, noteMax: 64 },
+  rare:          { label: "Rare",          color: "#05DF72", weight: 27, sellValue: 20,  noteMin: 65, noteMax: 76 },
+  epique:        { label: "Épique",        color: "#9c27b0", weight: 10, sellValue: 75,  noteMin: 77, noteMax: 85 },
+  international: { label: "International", color: "#1a1a2e", weight: 3,  sellValue: 200, noteMin: 86, noteMax: 92 },
+  legendaire:    { label: "Légende",       color: "#ffd700", weight: 0,  sellValue: 500, noteMin: 93, noteMax: 99 }
 };
 
 const PACKS = [

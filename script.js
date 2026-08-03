@@ -1216,17 +1216,15 @@ let statsOverrides = {};
 let noteOverrides = {}; // { "name|team": note }
 
 // Génère des sous-stats déterministes (même valeurs à chaque fois pour un joueur donné)
-// La fourchette dépend de la rareté pour garder une cohérence globale, mais chaque
-// sous-stat varie indépendamment pour créer de la disparité entre joueurs.
+// Spread constant et généreux pour garantir de vrais points forts/faibles même chez
+// les hautes raretés — la note générale est ensuite recadrée dans la fourchette de la
+// rareté pour éviter tout chevauchement entre paliers (voir calculerNoteGenerale).
 function generateBaseStats(player) {
   const rarity = RARITIES[player.rarity];
-  const noteMin = rarity?.noteMin ?? 60;
-  const noteMax = rarity?.noteMax ?? 79;
+  const noteMin = rarity?.noteMin ?? 40;
+  const noteMax = rarity?.noteMax ?? 64;
   const center = (noteMin + noteMax) / 2;
-  // Dispersion proportionnelle à la fourchette de la rareté, pour garantir une vraie
-  // séparation entre paliers (une Commune ne doit jamais approcher une Légende).
-  const rarityWidth = noteMax - noteMin; // large pour commune (19), étroit pour légende (2)
-  const spread = Math.max(6, Math.round(rarityWidth * 0.9));
+  const spread = 14; // dispersion individuelle constante entre les sous-stats
 
   const str = player.name + player.team;
   const stats = {};
@@ -1238,7 +1236,7 @@ function generateBaseStats(player) {
     }
     const offset = (hash % (spread * 2)) - spread; // -spread à +spread
     const val = Math.round(center + offset);
-    stats[stat] = Math.max(30, Math.min(99, val));
+    stats[stat] = Math.max(20, Math.min(99, val));
   });
   return stats;
 }
@@ -1257,18 +1255,27 @@ function calculerNoteGenerale(player, stats) {
   const postePrincipal = Array.isArray(player.positions) ? player.positions[0] : player.positions;
   const poids = COEFFS_POSTES[postePrincipal];
 
+  let noteCalculee;
   if (!poids) {
     // Poste inconnu → moyenne simple des sous-stats
     const vals = STAT_KEYS.map(k => stats[k] || 0);
-    return Math.round(vals.reduce((a,b) => a+b, 0) / vals.length);
+    noteCalculee = vals.reduce((a,b) => a+b, 0) / vals.length;
+  } else {
+    noteCalculee =
+      (stats.vitesse   * poids.vitesse) +
+      (stats.puissance * poids.puissance) +
+      (stats.defense   * poids.defense) +
+      (stats.passe     * poids.passe) +
+      (stats.technique * poids.technique);
   }
 
-  const noteCalculee =
-    (stats.vitesse   * poids.vitesse) +
-    (stats.puissance * poids.puissance) +
-    (stats.defense   * poids.defense) +
-    (stats.passe     * poids.passe) +
-    (stats.technique * poids.technique);
+  // Recadrer la note dans la fourchette de la rareté du joueur, pour garantir
+  // qu'une carte Commune ne dépasse jamais une Rare, etc. Sans ce clamp, le
+  // calcul pondéré peut sortir de la fourchette prévue et créer des chevauchements.
+  const rarity = RARITIES[player.rarity];
+  if (rarity && rarity.noteMin !== undefined && rarity.noteMax !== undefined) {
+    noteCalculee = Math.max(rarity.noteMin, Math.min(rarity.noteMax, noteCalculee));
+  }
 
   return Math.round(noteCalculee);
 }
