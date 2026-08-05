@@ -621,7 +621,9 @@ html, body {
 #album-club-filter-select,
 #album-poste-filter-select,
 #rarity-filter-select,
-#album-rarity-filter-select {
+#album-rarity-filter-select,
+#note-order-select,
+#album-note-order-select {
   padding: 0.45rem 0.8rem;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.15);
@@ -649,7 +651,9 @@ html, body {
 #album-club-filter-select:hover,
 #album-poste-filter-select:hover,
 #rarity-filter-select:hover,
-#album-rarity-filter-select:hover {
+#album-rarity-filter-select:hover,
+#note-order-select:hover,
+#album-note-order-select:hover {
   border-color: var(--gold);
   background-color: rgba(255,255,255,0.1);
 }
@@ -663,7 +667,9 @@ html, body {
 #album-club-filter-select:focus,
 #album-poste-filter-select:focus,
 #rarity-filter-select:focus,
-#album-rarity-filter-select:focus {
+#album-rarity-filter-select:focus,
+#note-order-select:focus,
+#album-note-order-select:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(255,209,0,0.25);
@@ -679,7 +685,9 @@ html, body {
 #album-club-filter-select option,
 #album-poste-filter-select option,
 #rarity-filter-select option,
-#album-rarity-filter-select option {
+#album-rarity-filter-select option,
+#note-order-select option,
+#album-note-order-select option {
   background: #1a1c2e;
   color: #fff;
 }
@@ -2948,9 +2956,9 @@ textarea.contact-input {
   .sort-controls label { font-size: 0.72rem; }
 
   #sort-select, #position-filter-select,
-  #club-filter-select, #poste-filter-select, #rarity-filter-select,
+  #club-filter-select, #poste-filter-select, #rarity-filter-select, #note-order-select,
   #album-sort-select, #album-position-filter-select,
-  #album-club-filter-select, #album-poste-filter-select, #album-rarity-filter-select {
+  #album-club-filter-select, #album-poste-filter-select, #album-rarity-filter-select, #album-note-order-select {
     font-size: 0.75rem;
     padding: 0.35rem 1.6rem 0.35rem 0.6rem;
     max-width: 100%;
