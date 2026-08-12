@@ -3158,3 +3158,240 @@ textarea.contact-input {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ===== ONGLET MATCH ===== */
+.match-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: rgba(255,255,255,0.6);
+}
+
+.match-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 0.8rem;
+}
+
+.match-empty-sub {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.4);
+  margin-top: 0.5rem;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.match-setup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.match-team-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1.2rem 1.6rem;
+  text-align: center;
+  min-width: 180px;
+}
+
+.match-team-user {
+  border-color: rgba(255,209,0,0.3);
+}
+
+.match-team-cpu {
+  border-color: rgba(255,255,255,0.1);
+}
+
+.match-team-label {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+}
+
+.match-team-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.03em;
+  color: #fff;
+}
+
+.match-team-rating {
+  font-size: 0.85rem;
+  color: var(--gold);
+  font-weight: 700;
+  margin-top: 0.4rem;
+}
+
+.match-vs {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em;
+}
+
+.start-match-btn {
+  display: block;
+  margin: 0 auto 1.5rem;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffd700, #b8860b);
+  color: #1a1a1a;
+  font-weight: 900;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(255,209,0,0.3);
+  transition: transform 0.15s ease;
+}
+
+.start-match-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.start-match-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.match-log {
+  max-width: 640px;
+  margin: 0 auto;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  max-height: 420px;
+  overflow-y: auto;
+  min-height: 60px;
+}
+
+.match-live-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  position: sticky;
+  top: 0;
+  background: transparent;
+}
+
+.match-live-team {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.02em;
+}
+
+.match-live-points {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: var(--gold);
+  min-width: 36px;
+  text-align: center;
+}
+
+.match-live-sep {
+  color: rgba(255,255,255,0.3);
+  font-size: 1.2rem;
+}
+
+.match-log-line {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  line-height: 1.5;
+  animation: matchLineIn 0.3s ease;
+}
+
+@keyframes matchLineIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.match-log-minute {
+  color: var(--gold);
+  font-weight: 700;
+  margin-right: 0.4rem;
+}
+
+.match-log-line.match-log-user strong {
+  color: #05DF72;
+}
+
+.match-log-line.match-log-cpu strong {
+  color: #ff6b6b;
+}
+
+.match-result {
+  text-align: center;
+  margin-top: 1.2rem;
+  padding: 1.2rem;
+  border-radius: 12px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.match-result.hidden { display: none; }
+
+.match-result-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.05em;
+}
+
+.match-result-win {
+  color: #05DF72;
+}
+
+.match-result-draw {
+  color: #ffd700;
+}
+
+.match-result-lose {
+  color: #ff6b6b;
+}
+
+.match-result-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  color: #fff;
+  margin: 0.4rem 0;
+}
+
+.match-result-reward {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+@media (max-width: 768px) {
+  .match-setup {
+    gap: 0.8rem;
+  }
+  .match-team-card {
+    min-width: 140px;
+    padding: 0.9rem 1rem;
+  }
+  .match-team-name {
+    font-size: 1.05rem;
+  }
+  .match-log {
+    max-height: 320px;
+    padding: 0.8rem;
+  }
+}

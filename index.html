@@ -105,6 +105,7 @@ const db = firebase.firestore();
       <button class="nav-btn active" data-tab="packs">📦 PACKS</button>
       <button class="nav-btn" data-tab="collection">👤 MON CLUB</button>
       <button class="nav-btn" data-tab="equipe">🏉 MON ÉQUIPE</button>
+      <button class="nav-btn" data-tab="match">⚔️ MATCH</button>
       <button class="nav-btn" data-tab="album">📖 ALBUM</button>
       <button class="nav-btn hidden" id="admin-nav-btn" data-tab="admin">⚙️ ADMIN</button>
     </nav>
@@ -133,6 +134,7 @@ const db = firebase.firestore();
             <option value="club">Club</option>
             <option value="position">Poste</option>
             <option value="nationality">Nationalité</option>
+            <option value="note">Notes</option>
           </select>
           <select id="position-filter-select" class="hidden">
             <option value="all">Tous les postes</option>
@@ -145,6 +147,10 @@ const db = firebase.firestore();
           </select>
           <select id="rarity-filter-select" class="hidden">
             <option value="all">Toutes les raretés</option>
+          </select>
+          <select id="note-order-select" class="hidden">
+            <option value="desc">Notes décroissantes</option>
+            <option value="asc">Notes croissantes</option>
           </select>
         </div>
         <div class="search-bar-wrapper">
@@ -172,6 +178,14 @@ const db = firebase.firestore();
         <div id="pitch-container"></div>
       </section>
 
+      <!-- ===== ONGLET MATCH ===== -->
+      <section id="tab-match" class="tab-content">
+        <div class="section-header">
+          <h1 class="section-title">Match</h1>
+        </div>
+        <div id="match-container"></div>
+      </section>
+
       <!-- ===== ONGLET ALBUM ===== -->
       <section id="tab-album" class="tab-content">
         <div class="section-header">
@@ -187,6 +201,7 @@ const db = firebase.firestore();
             <option value="club">Club</option>
             <option value="position">Poste</option>
             <option value="nationality">Nationalité</option>
+            <option value="note">Notes</option>
           </select>
           <select id="album-position-filter-select" class="hidden">
             <option value="all">Tous les postes</option>
@@ -199,6 +214,10 @@ const db = firebase.firestore();
           </select>
           <select id="album-rarity-filter-select" class="hidden">
             <option value="all">Toutes les raretés</option>
+          </select>
+          <select id="album-note-order-select" class="hidden">
+            <option value="desc">Notes décroissantes</option>
+            <option value="asc">Notes croissantes</option>
           </select>
         </div>
         <div class="search-bar-wrapper">

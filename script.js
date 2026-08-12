@@ -668,6 +668,7 @@ function setupTabs() {
       if (btn.dataset.tab === "collection") { updateSecondaryFilters("collection"); renderCollection(); }
       if (btn.dataset.tab === "album") { updateSecondaryFilters("album"); renderAlbum(); }
       if (btn.dataset.tab === "equipe") renderEquipe();
+      if (btn.dataset.tab === "match") renderMatch();
       if (btn.dataset.tab === "admin" && isAdmin()) renderAdmin();
     });
   });
@@ -684,6 +685,7 @@ function setupTabs() {
   });
   document.getElementById("poste-filter-select").addEventListener("change", renderCollection);
   document.getElementById("rarity-filter-select").addEventListener("change", renderCollection);
+  document.getElementById("note-order-select").addEventListener("change", renderCollection);
 
   // Barre de recherche Mon Club
   const searchInput = document.getElementById("collection-search");
@@ -711,6 +713,7 @@ function setupTabs() {
   });
   document.getElementById("album-poste-filter-select").addEventListener("change", renderAlbum);
   document.getElementById("album-rarity-filter-select").addEventListener("change", renderAlbum);
+  document.getElementById("album-note-order-select").addEventListener("change", renderAlbum);
 
   // Barre de recherche Album
   const albumSearch = document.getElementById("album-search");
@@ -737,16 +740,18 @@ function updateSecondaryFilters(tab) {
   const sortMode = document.getElementById(isAlbum ? "album-sort-select" : "sort-select").value;
 
   // Sélecteurs
-  const posSelect    = document.getElementById(isAlbum ? "album-position-filter-select" : "position-filter-select");
-  const clubSelect   = document.getElementById(isAlbum ? "album-club-filter-select" : "club-filter-select");
-  const posteSelect  = document.getElementById(isAlbum ? "album-poste-filter-select" : "poste-filter-select");
-  const raritySelect = document.getElementById(isAlbum ? "album-rarity-filter-select" : "rarity-filter-select");
+  const posSelect     = document.getElementById(isAlbum ? "album-position-filter-select" : "position-filter-select");
+  const clubSelect    = document.getElementById(isAlbum ? "album-club-filter-select" : "club-filter-select");
+  const posteSelect   = document.getElementById(isAlbum ? "album-poste-filter-select" : "poste-filter-select");
+  const raritySelect  = document.getElementById(isAlbum ? "album-rarity-filter-select" : "rarity-filter-select");
+  const noteOrderSelect = document.getElementById(isAlbum ? "album-note-order-select" : "note-order-select");
 
   // Tout masquer par défaut
   posSelect.classList.add("hidden");
   clubSelect.classList.add("hidden");
   posteSelect.classList.add("hidden");
   raritySelect.classList.add("hidden");
+  noteOrderSelect.classList.add("hidden");
 
   if (sortMode === "rarity") {
     // Filtre rareté — dans l'ordre décroissant (Légende → Commune)
@@ -783,6 +788,10 @@ function updateSecondaryFilters(tab) {
     if (clubSelect.value !== "all") {
       updatePosteFilterForClub(tab);
     }
+
+  } else if (sortMode === "note") {
+    // Sous-filtre ordre croissant/décroissant
+    noteOrderSelect.classList.remove("hidden");
   }
 }
 
@@ -1572,6 +1581,16 @@ function sortPlayers(players, mode, tab = "collection") {
       });
       break;
 
+    case "note": {
+      const orderSelectId = tab === "album" ? "album-note-order-select" : "note-order-select";
+      const order = document.getElementById(orderSelectId)?.value || "desc";
+      players.sort((a, b) => {
+        const diff = getPlayerNote(b) - getPlayerNote(a); // décroissant par défaut
+        return (order === "asc" ? -diff : diff) || a.name.localeCompare(b.name);
+      });
+      break;
+    }
+
     case "rarity":
     default:
       players.sort((a, b) =>
@@ -2339,6 +2358,273 @@ function doCompoType() {
   equipe = newEquipe;
   renderEquipe();
   saveData();
+}
+
+// =========================================================
+// ONGLET MATCH — Simulation contre une équipe aléatoire
+// =========================================================
+
+let matchInProgress = false;
+
+function renderMatch() {
+  const container = document.getElementById("match-container");
+  container.innerHTML = "";
+
+  const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
+  const filledTitulaires = titulaires.filter(s => equipe[s.id]);
+
+  if (filledTitulaires.length < 15) {
+    container.innerHTML = `
+      <div class="match-empty">
+        <div class="match-empty-icon">🏉</div>
+        <p>Ton équipe n'est pas complète.</p>
+        <p class="match-empty-sub">${filledTitulaires.length}/15 titulaires sélectionnés — complète ta composition dans l'onglet <strong>Mon Équipe</strong> avant de lancer un match.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="match-setup">
+      <div class="match-team-card match-team-user">
+        <div class="match-team-label">Ton équipe</div>
+        <div class="match-team-name" id="match-user-name">${(currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi")}</div>
+        <div class="match-team-rating" id="match-user-rating">—</div>
+      </div>
+      <div class="match-vs">VS</div>
+      <div class="match-team-card match-team-cpu">
+        <div class="match-team-label">Adversaire</div>
+        <div class="match-team-name" id="match-cpu-name">Équipe Aléatoire</div>
+        <div class="match-team-rating" id="match-cpu-rating">—</div>
+      </div>
+    </div>
+    <button id="start-match-btn" class="start-match-btn">🏉 Lancer le match</button>
+    <div id="match-log" class="match-log"></div>
+    <div id="match-result" class="match-result hidden"></div>
+  `;
+
+  const userRating = computeTeamRating(filledTitulaires.map(s => equipe[s.id]));
+  document.getElementById("match-user-rating").textContent = `Force : ${userRating}`;
+
+  const cpuTeam = generateRandomCpuTeam();
+  const cpuRating = computeTeamRating(cpuTeam);
+  document.getElementById("match-cpu-rating").textContent = `Force : ${cpuRating}`;
+
+  document.getElementById("start-match-btn").onclick = () => {
+    if (matchInProgress) return;
+    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), cpuTeam, userRating, cpuRating);
+  };
+}
+
+function computeTeamRating(players) {
+  if (!players.length) return 0;
+  const total = players.reduce((sum, p) => sum + getPlayerNote(p), 0);
+  return Math.round(total / players.length);
+}
+
+function generateRandomCpuTeam() {
+  const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
+  const cpuTeam = [];
+  const usedKeys = new Set();
+
+  titulaires.forEach(slot => {
+    const eligible = PLAYERS.filter(p =>
+      (p.positions || []).includes(slot.poste) && !usedKeys.has(getCardKey(p))
+    );
+    if (eligible.length === 0) return;
+    const pick = eligible[Math.floor(Math.random() * eligible.length)];
+    usedKeys.add(getCardKey(pick));
+    cpuTeam.push(pick);
+  });
+
+  return cpuTeam;
+}
+
+// ---------------------------------------------------------
+// SIMULATION DU MATCH — commentaire en direct + score
+// ---------------------------------------------------------
+function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
+  matchInProgress = true;
+  const startBtn = document.getElementById("start-match-btn");
+  const logEl = document.getElementById("match-log");
+  const resultEl = document.getElementById("match-result");
+
+  startBtn.disabled = true;
+  startBtn.textContent = "Match en cours...";
+  logEl.innerHTML = "";
+  resultEl.classList.add("hidden");
+  resultEl.innerHTML = "";
+
+  const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi";
+  const cpuName = "Équipe Aléatoire";
+
+  let userScore = 0;
+  let cpuScore = 0;
+
+  const ratingDiff = userRating - cpuRating;
+  const userAdvantage = 0.5 + Math.max(-0.3, Math.min(0.3, ratingDiff / 100));
+
+  const events = generateMatchEvents(userName, cpuName, userAdvantage);
+
+  let idx = 0;
+  const scoreEl = document.createElement("div");
+  scoreEl.className = "match-live-score";
+  logEl.appendChild(scoreEl);
+
+  function updateLiveScore() {
+    scoreEl.innerHTML = `
+      <span class="match-live-team">${userName}</span>
+      <span class="match-live-points">${userScore}</span>
+      <span class="match-live-sep">-</span>
+      <span class="match-live-points">${cpuScore}</span>
+      <span class="match-live-team">${cpuName}</span>
+    `;
+  }
+  updateLiveScore();
+
+  function playNextEvent() {
+    if (idx >= events.length) {
+      finishMatch();
+      return;
+    }
+    const ev = events[idx];
+    idx++;
+
+    if (ev.points) {
+      if (ev.team === "user") userScore += ev.points;
+      else cpuScore += ev.points;
+      updateLiveScore();
+    }
+
+    const line = document.createElement("div");
+    line.className = "match-log-line" + (ev.team ? ` match-log-${ev.team}` : "");
+    line.innerHTML = `<span class="match-log-minute">${ev.minute}'</span> ${ev.text}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+
+    setTimeout(playNextEvent, ev.important ? 1100 : 550);
+  }
+
+  function finishMatch() {
+    matchInProgress = false;
+    startBtn.disabled = false;
+    startBtn.textContent = "🏉 Relancer un match";
+
+    const won = userScore > cpuScore;
+    const draw = userScore === cpuScore;
+
+    resultEl.classList.remove("hidden");
+
+    if (won) {
+      const reward = 300;
+      coins += reward;
+      saveData();
+      updateCoinsDisplay();
+      resultEl.innerHTML = `
+        <div class="match-result-title match-result-win">🏆 Victoire !</div>
+        <div class="match-result-score">${userScore} - ${cpuScore}</div>
+        <div class="match-result-reward">+${reward} <span class="rubiz-symbol"></span> RUGBIZ gagnés !</div>
+      `;
+    } else if (draw) {
+      resultEl.innerHTML = `
+        <div class="match-result-title match-result-draw">🤝 Match nul</div>
+        <div class="match-result-score">${userScore} - ${cpuScore}</div>
+        <div class="match-result-reward">Aucune récompense pour un match nul.</div>
+      `;
+    } else {
+      resultEl.innerHTML = `
+        <div class="match-result-title match-result-lose">❌ Défaite</div>
+        <div class="match-result-score">${userScore} - ${cpuScore}</div>
+        <div class="match-result-reward">Retente ta chance !</div>
+      `;
+    }
+  }
+
+  playNextEvent();
+}
+
+function generateMatchEvents(userName, cpuName, userAdvantage) {
+  const events = [];
+  events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, important: true });
+
+  const templates = {
+    essai: [
+      "perce la défense et aplatit en coin ! Essai !",
+      "profite d'un relais parfait pour aplatir sous les poteaux ! Essai !",
+      "termine une action collective magnifique par un essai !",
+      "intercepte une passe et file marquer à 60 mètres ! Essai splendide !",
+      "conclut une séquence de pick-and-go par un essai en force !"
+    ],
+    penalite: [
+      "obtient une pénalité et l'ouvreur ajuste sans trembler.",
+      "profite d'une faute adverse en touche pour tenter les poteaux.",
+      "récupère un ballon en mêlée et tente sa chance au pied."
+    ],
+    dropgoal: [
+      "tente un drop audacieux... et ça passe !"
+    ],
+    neutre: [
+      "domine la mêlée mais perd le ballon en sortie.",
+      "tape en touche pour gagner du terrain.",
+      "se fait plaquer juste avant la ligne d'en-but !",
+      "voit son essai refusé après visionnage vidéo.",
+      "concède une pénalité pour un plaquage haut.",
+      "relance depuis son camp mais est repoussé en touche.",
+      "perd le ballon en mêlée fermée.",
+      "grappille quelques mètres sur un temps de jeu long.",
+      "manque sa tentative de pénalité, le ballon passe à côté.",
+      "fait une passe décisive mais l'ailier échappe le ballon.",
+      "se montre solide en défense sur plusieurs temps de jeu.",
+      "profite d'un ballon de récupération pour relancer le jeu."
+    ]
+  };
+
+  const minutes = [];
+  let m = 3;
+  while (m < 80) {
+    minutes.push(m);
+    m += 4 + Math.floor(Math.random() * 8);
+  }
+
+  minutes.forEach(minute => {
+    const isUserEvent = Math.random() < userAdvantage;
+    const team = isUserEvent ? "user" : "cpu";
+    const name = isUserEvent ? userName : cpuName;
+
+    const roll = Math.random();
+    let type, points, textPool;
+
+    if (roll < 0.28) {
+      type = "essai"; points = Math.random() < 0.75 ? 7 : 5;
+      textPool = templates.essai;
+    } else if (roll < 0.45) {
+      type = "penalite"; points = 3;
+      textPool = templates.penalite;
+    } else if (roll < 0.5) {
+      type = "dropgoal"; points = 3;
+      textPool = templates.dropgoal;
+    } else {
+      type = "neutre"; points = 0;
+      textPool = templates.neutre;
+    }
+
+    const phrase = textPool[Math.floor(Math.random() * textPool.length)];
+    const important = type === "essai" || type === "dropgoal";
+
+    let text;
+    if (type === "essai") {
+      text = `<strong>${name}</strong> ${phrase}${points === 7 ? "" : " (transformation manquée)"}`;
+    } else {
+      text = `<strong>${name}</strong> ${phrase}`;
+    }
+
+    events.push({ minute, text, team: points > 0 ? team : null, points, important });
+  });
+
+  events.sort((a, b) => a.minute - b.minute);
+  events.push({ minute: 80, text: "Coup de sifflet final ! 🏉", important: true });
+
+  return events;
 }
 
 
