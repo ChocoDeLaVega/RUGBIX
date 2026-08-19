@@ -3395,3 +3395,99 @@ textarea.contact-input {
     padding: 0.8rem;
   }
 }
+
+/* ===== COMPOSITIONS COMPLÈTES (Match) ===== */
+.match-lineups {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.match-lineup-col {
+  flex: 1 1 320px;
+  max-width: 480px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.match-lineup-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.match-lineup-title-user {
+  color: var(--gold);
+  border-bottom-color: rgba(255,209,0,0.3);
+}
+
+.match-lineup-title-cpu {
+  color: #ff8a80;
+  border-bottom-color: rgba(255,138,128,0.3);
+}
+
+.match-lineup-subtitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0.8rem 0 0.5rem;
+}
+
+.match-lineup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 0.4rem;
+}
+
+.match-lineup-slot .mini-card {
+  width: 100%;
+}
+
+.match-lineup-slot-empty {
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(255,255,255,0.15);
+  border-radius: 8px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+}
+
+.match-lineup-slot-empty .slot-num {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: rgba(255,255,255,0.4);
+}
+
+.match-lineup-slot-empty .slot-label-mini {
+  font-size: 0.5rem;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  padding: 0 0.2rem;
+}
+
+@media (max-width: 768px) {
+  .match-lineups {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .match-lineup-col {
+    max-width: 100%;
+  }
+  .match-lineup-grid {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 0.3rem;
+  }
+}

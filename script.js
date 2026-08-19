@@ -2384,6 +2384,12 @@ function renderMatch() {
     return;
   }
 
+  const bancSlots = getBancSlots();
+  const filledBanc = bancSlots.filter(s => equipe[s.id]);
+
+  // Générer l'équipe CPU complète (titulaires + banc, type de banc aléatoire)
+  const cpuSquad = generateRandomCpuSquad();
+
   container.innerHTML = `
     <div class="match-setup">
       <div class="match-team-card match-team-user">
@@ -2394,26 +2400,63 @@ function renderMatch() {
       <div class="match-vs">VS</div>
       <div class="match-team-card match-team-cpu">
         <div class="match-team-label">Adversaire</div>
-        <div class="match-team-name" id="match-cpu-name">Équipe Aléatoire</div>
+        <div class="match-team-name" id="match-cpu-name">Équipe Rugbix</div>
         <div class="match-team-rating" id="match-cpu-rating">—</div>
       </div>
     </div>
     <button id="start-match-btn" class="start-match-btn">🏉 Lancer le match</button>
     <div id="match-log" class="match-log"></div>
     <div id="match-result" class="match-result hidden"></div>
+
+    <!-- Compositions complètes des deux équipes -->
+    <div class="match-lineups">
+      <div class="match-lineup-col">
+        <div class="match-lineup-title match-lineup-title-user">Ton équipe (${currentBanc})</div>
+        <div class="match-lineup-subtitle">Titulaires</div>
+        <div class="match-lineup-grid" id="match-user-titulaires"></div>
+        <div class="match-lineup-subtitle">Remplaçants</div>
+        <div class="match-lineup-grid" id="match-user-banc"></div>
+      </div>
+      <div class="match-lineup-col">
+        <div class="match-lineup-title match-lineup-title-cpu">Équipe Rugbix (${cpuSquad.bancType})</div>
+        <div class="match-lineup-subtitle">Titulaires</div>
+        <div class="match-lineup-grid" id="match-cpu-titulaires"></div>
+        <div class="match-lineup-subtitle">Remplaçants</div>
+        <div class="match-lineup-grid" id="match-cpu-banc"></div>
+      </div>
+    </div>
   `;
 
+  // Afficher les mini-cartes de chaque poste, titulaires + banc, pour les deux équipes
+  fillLineupGrid("match-user-titulaires", titulaires, s => equipe[s.id]);
+  fillLineupGrid("match-user-banc", bancSlots, s => equipe[s.id]);
+  fillLineupGrid("match-cpu-titulaires", titulaires, s => cpuSquad.titulairesMap[s.id]);
+  fillLineupGrid("match-cpu-banc", cpuSquad.bancSlots, s => cpuSquad.bancMap[s.id]);
+
+  // Calculer et afficher la force de chaque équipe (titulaires uniquement, comme au coup d'envoi)
   const userRating = computeTeamRating(filledTitulaires.map(s => equipe[s.id]));
   document.getElementById("match-user-rating").textContent = `Force : ${userRating}`;
 
-  const cpuTeam = generateRandomCpuTeam();
-  const cpuRating = computeTeamRating(cpuTeam);
+  const cpuRating = computeTeamRating(titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean));
   document.getElementById("match-cpu-rating").textContent = `Force : ${cpuRating}`;
 
   document.getElementById("start-match-btn").onclick = () => {
     if (matchInProgress) return;
-    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), cpuTeam, userRating, cpuRating);
+    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), [], userRating, cpuRating);
   };
+}
+
+// Remplit une grille de mini-cartes pour une liste de slots donnée
+function fillLineupGrid(containerId, slots, getPlayerForSlot) {
+  const grid = document.getElementById(containerId);
+  if (!grid) return;
+  grid.innerHTML = slots.map(slot => {
+    const player = getPlayerForSlot(slot);
+    if (!player) {
+      return `<div class="match-lineup-slot-empty"><div class="slot-num">${slot.num}</div><div class="slot-label-mini">${slot.label.replace("\n"," ")}</div></div>`;
+    }
+    return `<div class="match-lineup-slot">${buildMiniCard(player, slot)}</div>`;
+  }).join("");
 }
 
 function computeTeamRating(players) {
@@ -2422,11 +2465,11 @@ function computeTeamRating(players) {
   return Math.round(total / players.length);
 }
 
-function generateRandomCpuTeam() {
+function generateRandomCpuSquad() {
   const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
-  const cpuTeam = [];
   const usedKeys = new Set();
 
+  const titulairesMap = {};
   titulaires.forEach(slot => {
     const eligible = PLAYERS.filter(p =>
       (p.positions || []).includes(slot.poste) && !usedKeys.has(getCardKey(p))
@@ -2434,10 +2477,27 @@ function generateRandomCpuTeam() {
     if (eligible.length === 0) return;
     const pick = eligible[Math.floor(Math.random() * eligible.length)];
     usedKeys.add(getCardKey(pick));
-    cpuTeam.push(pick);
+    titulairesMap[slot.id] = pick;
   });
 
-  return cpuTeam;
+  // Banc de type aléatoire (5-3, 6-2 ou 7-1), indépendant du banc du joueur
+  const bancKeys = Object.keys(BANC_CONFIGS);
+  const randomBancKey = bancKeys[Math.floor(Math.random() * bancKeys.length)];
+  const bancSlots = BANC_CONFIGS[randomBancKey].slots.map(s => ({ ...s, remplacant: true }));
+
+  const bancMap = {};
+  bancSlots.forEach(slot => {
+    const slotPostes = slot.postes || [slot.poste];
+    const eligible = PLAYERS.filter(p =>
+      (p.positions || []).some(pos => slotPostes.includes(pos)) && !usedKeys.has(getCardKey(p))
+    );
+    if (eligible.length === 0) return;
+    const pick = eligible[Math.floor(Math.random() * eligible.length)];
+    usedKeys.add(getCardKey(pick));
+    bancMap[slot.id] = pick;
+  });
+
+  return { titulairesMap, bancMap, bancSlots, bancType: randomBancKey };
 }
 
 // ---------------------------------------------------------
@@ -2509,6 +2569,10 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
     matchInProgress = false;
     startBtn.disabled = false;
     startBtn.textContent = "🏉 Relancer un match";
+
+    // Après le match, le bouton régénère une toute nouvelle équipe Rugbix
+    // (titulaires, remplaçants et type de banc aléatoires) via renderMatch()
+    startBtn.onclick = () => renderMatch();
 
     const won = userScore > cpuScore;
     const draw = userScore === cpuScore;
