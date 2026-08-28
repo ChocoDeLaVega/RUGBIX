@@ -212,11 +212,16 @@ async function loadProgressFromFirebase() {
           if (player) equipe[slotId] = player;
         }
       }
+      // Historique des matchs (les 10 plus récents) et statistiques cumulées
+      matchHistory = Array.isArray(data.matchHistory) ? data.matchHistory : [];
+      matchStats = data.matchStats || { played: 0, wins: 0, draws: 0, losses: 0 };
     } else {
       collection = {};
       coins = 900;
       equipe = {};
       currentBanc = "5-3";
+      matchHistory = [];
+      matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
       await saveToFirebase();
     }
   } catch(e) {
@@ -224,6 +229,8 @@ async function loadProgressFromFirebase() {
     collection = {};
     coins = 900;
     equipe = {};
+    matchHistory = [];
+    matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
   }
 }
 
@@ -246,6 +253,8 @@ function saveData() {
         banc: currentBanc,
         xvUsed: xvUsedInMemory,
         dailyLast: dailyLastUsed || null,
+        matchHistory,
+        matchStats,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     } catch(e) {
@@ -272,6 +281,8 @@ async function saveToFirebase() {
       banc: currentBanc,
       xvUsed: xvUsedInMemory,
       dailyLast: dailyLastUsed || null,
+      matchHistory,
+      matchStats,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   } catch(e) {
@@ -1982,6 +1993,10 @@ const BANC_CONFIGS = {
 // Banc actuellement sélectionné (persisté avec l'équipe)
 let currentBanc = "5-3";
 
+// Historique des matchs (10 plus récents, le plus récent en premier) + stats cumulées
+let matchHistory = []; // [{ result: "win"|"draw"|"loss", userScore, cpuScore }]
+let matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
+
 // Retourne les slots de remplaçants du banc actuel, au format EQUIPE_SLOTS
 function getBancSlots() {
   const config = BANC_CONFIGS[currentBanc] || BANC_CONFIGS["5-3"];
@@ -2391,22 +2406,34 @@ function renderMatch() {
   const cpuSquad = generateRandomCpuSquad();
 
   container.innerHTML = `
-    <div class="match-setup">
-      <div class="match-team-card match-team-user">
-        <div class="match-team-label">Ton équipe</div>
-        <div class="match-team-name" id="match-user-name">${(currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi")}</div>
-        <div class="match-team-rating" id="match-user-rating">—</div>
+    <div class="match-top-row">
+      <div class="match-main-col">
+        <div class="match-setup">
+          <div class="match-team-card match-team-user">
+            <div class="match-team-label">Ton équipe</div>
+            <div class="match-team-name" id="match-user-name">${(currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi")}</div>
+            <div class="match-team-rating" id="match-user-rating">—</div>
+          </div>
+          <div class="match-vs">VS</div>
+          <div class="match-team-card match-team-cpu">
+            <div class="match-team-label">Adversaire</div>
+            <div class="match-team-name" id="match-cpu-name">Équipe Rugbix</div>
+            <div class="match-team-rating" id="match-cpu-rating">—</div>
+          </div>
+        </div>
+        <button id="start-match-btn" class="start-match-btn">🏉 Lancer le match</button>
+        <div id="match-log" class="match-log"></div>
+        <div id="match-result" class="match-result hidden"></div>
       </div>
-      <div class="match-vs">VS</div>
-      <div class="match-team-card match-team-cpu">
-        <div class="match-team-label">Adversaire</div>
-        <div class="match-team-name" id="match-cpu-name">Équipe Rugbix</div>
-        <div class="match-team-rating" id="match-cpu-rating">—</div>
+
+      <!-- Panneau historique + stats -->
+      <div class="match-history-panel">
+        <div class="match-history-title">Statistiques</div>
+        <div class="match-stats-grid" id="match-stats-grid"></div>
+        <div class="match-history-title">Derniers matchs</div>
+        <div class="match-history-list" id="match-history-list"></div>
       </div>
     </div>
-    <button id="start-match-btn" class="start-match-btn">🏉 Lancer le match</button>
-    <div id="match-log" class="match-log"></div>
-    <div id="match-result" class="match-result hidden"></div>
 
     <!-- Compositions complètes des deux équipes -->
     <div class="match-lineups">
@@ -2427,6 +2454,8 @@ function renderMatch() {
     </div>
   `;
 
+  renderMatchHistoryPanel();
+
   // Afficher les mini-cartes de chaque poste, titulaires + banc, pour les deux équipes
   fillLineupGrid("match-user-titulaires", titulaires, s => equipe[s.id]);
   fillLineupGrid("match-user-banc", bancSlots, s => equipe[s.id]);
@@ -2444,6 +2473,37 @@ function renderMatch() {
     if (matchInProgress) return;
     startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), [], userRating, cpuRating);
   };
+}
+
+// Affiche les compteurs et la liste des derniers matchs dans le panneau latéral
+function renderMatchHistoryPanel() {
+  const statsGrid = document.getElementById("match-stats-grid");
+  const historyList = document.getElementById("match-history-list");
+  if (!statsGrid || !historyList) return;
+
+  statsGrid.innerHTML = `
+    <div class="match-stat-box"><div class="match-stat-value">${matchStats.played}</div><div class="match-stat-label">Joués</div></div>
+    <div class="match-stat-box match-stat-win"><div class="match-stat-value">${matchStats.wins}</div><div class="match-stat-label">Victoires</div></div>
+    <div class="match-stat-box match-stat-draw"><div class="match-stat-value">${matchStats.draws}</div><div class="match-stat-label">Nuls</div></div>
+    <div class="match-stat-box match-stat-loss"><div class="match-stat-value">${matchStats.losses}</div><div class="match-stat-label">Défaites</div></div>
+  `;
+
+  if (matchHistory.length === 0) {
+    historyList.innerHTML = `<div class="match-history-empty">Aucun match joué pour l'instant.</div>`;
+    return;
+  }
+
+  const resultIcons = { win: "🏆", draw: "🤝", loss: "❌" };
+  const resultLabels = { win: "Victoire", draw: "Nul", loss: "Défaite" };
+  const resultClasses = { win: "match-history-win", loss: "match-history-loss", draw: "match-history-draw" };
+
+  historyList.innerHTML = matchHistory.map(m => `
+    <div class="match-history-row ${resultClasses[m.result]}">
+      <span class="match-history-icon">${resultIcons[m.result]}</span>
+      <span class="match-history-label">${resultLabels[m.result]}</span>
+      <span class="match-history-score">${m.userScore} - ${m.cpuScore}</span>
+    </div>
+  `).join("");
 }
 
 // Remplit une grille de mini-cartes pour une liste de slots donnée
@@ -2576,6 +2636,20 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
 
     const won = userScore > cpuScore;
     const draw = userScore === cpuScore;
+    const result = won ? "win" : (draw ? "draw" : "loss");
+
+    // Mettre à jour les statistiques cumulées
+    matchStats.played += 1;
+    if (result === "win") matchStats.wins += 1;
+    else if (result === "draw") matchStats.draws += 1;
+    else matchStats.losses += 1;
+
+    // Ajouter le match en tête d'historique — le plus récent écrase le plus ancien (max 10)
+    matchHistory.unshift({ result, userScore, cpuScore });
+    if (matchHistory.length > 10) matchHistory.length = 10;
+
+    // Rafraîchir immédiatement le panneau historique/stats
+    renderMatchHistoryPanel();
 
     resultEl.classList.remove("hidden");
 
@@ -2590,12 +2664,14 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
         <div class="match-result-reward">+${reward} <span class="rubiz-symbol"></span> RUGBIZ gagnés !</div>
       `;
     } else if (draw) {
+      saveData();
       resultEl.innerHTML = `
         <div class="match-result-title match-result-draw">🤝 Match nul</div>
         <div class="match-result-score">${userScore} - ${cpuScore}</div>
         <div class="match-result-reward">Aucune récompense pour un match nul.</div>
       `;
     } else {
+      saveData();
       resultEl.innerHTML = `
         <div class="match-result-title match-result-lose">❌ Défaite</div>
         <div class="match-result-score">${userScore} - ${cpuScore}</div>

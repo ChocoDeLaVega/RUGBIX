@@ -3491,3 +3491,127 @@ textarea.contact-input {
     gap: 0.3rem;
   }
 }
+
+/* ===== PANNEAU HISTORIQUE MATCH ===== */
+.match-top-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.match-main-col {
+  flex: 1 1 480px;
+  max-width: 640px;
+}
+
+.match-history-panel {
+  flex: 0 0 260px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.match-history-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: rgba(255,255,255,0.6);
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+
+.match-history-title:not(:first-child) {
+  margin-top: 1.2rem;
+}
+
+.match-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.match-stat-box {
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+}
+
+.match-stat-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.match-stat-label {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 0.1rem;
+}
+
+.match-stat-win .match-stat-value { color: #05DF72; }
+.match-stat-draw .match-stat-value { color: #ffd700; }
+.match-stat-loss .match-stat-value { color: #ff6b6b; }
+
+.match-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.match-history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid transparent;
+  font-size: 0.82rem;
+}
+
+.match-history-win { border-left-color: #05DF72; }
+.match-history-draw { border-left-color: #ffd700; }
+.match-history-loss { border-left-color: #ff6b6b; }
+
+.match-history-icon {
+  font-size: 0.9rem;
+}
+
+.match-history-label {
+  flex: 1;
+  color: rgba(255,255,255,0.75);
+}
+
+.match-history-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.match-history-empty {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  padding: 1rem 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .match-top-row {
+    flex-direction: column;
+  }
+  .match-main-col,
+  .match-history-panel {
+    flex: 1 1 auto;
+    max-width: 100%;
+    width: 100%;
+  }
+}
