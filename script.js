@@ -1289,14 +1289,8 @@ function calculerNoteGenerale(player, stats) {
       (stats.technique * poids.technique);
   }
 
-  // Recadrer la note dans la fourchette de la rareté du joueur, pour garantir
-  // qu'une carte Commune ne dépasse jamais une Rare, etc. Sans ce clamp, le
-  // calcul pondéré peut sortir de la fourchette prévue et créer des chevauchements.
-  const rarity = RARITIES[player.rarity];
-  if (rarity && rarity.noteMin !== undefined && rarity.noteMax !== undefined) {
-    noteCalculee = Math.max(rarity.noteMin, Math.min(rarity.noteMax, noteCalculee));
-  }
-
+  // Note générale purement issue du calcul pondéré des sous-stats,
+  // sans plafond/plancher lié à la rareté de la carte.
   return Math.round(noteCalculee);
 }
 
