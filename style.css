@@ -3277,12 +3277,17 @@ textarea.contact-input {
   align-items: center;
   justify-content: center;
   gap: 0.8rem;
-  padding-bottom: 0.8rem;
-  margin-bottom: 0.8rem;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 0.6rem 0 0.8rem;
+  margin: -1rem -1.2rem 0.8rem;
+  padding-left: 1.2rem;
+  padding-right: 1.2rem;
+  padding-top: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
   position: sticky;
   top: 0;
-  background: transparent;
+  z-index: 5;
+  background: #1a1c2e;
+  border-radius: 12px 12px 0 0;
 }
 
 .match-live-team {

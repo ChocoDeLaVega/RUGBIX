@@ -2458,10 +2458,10 @@ function renderMatch() {
 
   // Calculer et afficher la force de chaque équipe (titulaires uniquement, comme au coup d'envoi)
   const userRating = computeTeamRating(filledTitulaires.map(s => equipe[s.id]));
-  document.getElementById("match-user-rating").textContent = `Force : ${userRating}`;
+  document.getElementById("match-user-rating").textContent = `Collectif : ${userRating}`;
 
   const cpuRating = computeTeamRating(titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean));
-  document.getElementById("match-cpu-rating").textContent = `Force : ${cpuRating}`;
+  document.getElementById("match-cpu-rating").textContent = `Collectif : ${cpuRating}`;
 
   document.getElementById("start-match-btn").onclick = () => {
     if (matchInProgress) return;
