@@ -339,27 +339,60 @@ async function loadPlayersOverrides() {
 
     // Appliquer les notes générales personnalisées (forcées)
     if (data.notes && typeof data.notes === "object") {
-      noteOverrides = data.notes;
+      noteOverrides = { ...data.notes };
       console.log(`✓ ${Object.keys(data.notes).length} note(s) générale(s) personnalisée(s) chargée(s)`);
     }
 
     // Appliquer les sous-statistiques personnalisées
     if (data.stats && typeof data.stats === "object") {
-      statsOverrides = data.stats;
+      statsOverrides = { ...data.stats };
       console.log(`✓ ${Object.keys(data.stats).length} joueur(s) avec sous-stats personnalisées chargées`);
     }
 
-    // Appliquer les modifications de joueurs existants
+    // Appliquer les modifications de joueurs existants (club, rareté, postes)
+    // IMPORTANT : si le club change, la clé "nom|club" change aussi — il faut migrer
+    // les notes et sous-stats personnalisées vers la nouvelle clé, sinon elles
+    // deviennent orphelines et semblent "ne plus se sauvegarder".
+    let keysMigrated = false;
     if (data.edited && data.edited.length > 0) {
       data.edited.forEach(edit => {
         const idx = PLAYERS.findIndex(p => makeKey(p) === edit.key);
         if (idx >= 0) {
+          const oldKey = edit.key;
           if (edit.team && TEAMS[edit.team]) PLAYERS[idx].team = edit.team;
           if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
+          const newKey = makeKey(PLAYERS[idx]);
+
+          // Migrer les overrides de l'ancienne clé vers la nouvelle si le club a changé
+          if (newKey !== oldKey) {
+            if (noteOverrides[oldKey] !== undefined) {
+              noteOverrides[newKey] = noteOverrides[oldKey];
+              delete noteOverrides[oldKey];
+              keysMigrated = true;
+            }
+            if (statsOverrides[oldKey] !== undefined) {
+              statsOverrides[newKey] = statsOverrides[oldKey];
+              delete statsOverrides[oldKey];
+              keysMigrated = true;
+            }
+          }
         }
       });
       console.log(`✓ ${data.edited.length} modification(s) appliquée(s)`);
+
+      // Répercuter la migration des clés dans Firestore pour que ce soit permanent
+      if (keysMigrated) {
+        try {
+          await db.collection("playersOverrides").doc("data").set(
+            { ...data, notes: noteOverrides, stats: statsOverrides },
+            { merge: true }
+          );
+          console.log("✓ Clés de notes/stats migrées et sauvegardées");
+        } catch(e) {
+          console.warn("Migration des clés de notes non sauvegardée:", e.message);
+        }
+      }
     }
   } catch(e) {
     console.warn("Overrides non chargés:", e.message);
