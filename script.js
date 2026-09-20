@@ -407,7 +407,7 @@ async function savePlayersOverrides(addedPlayers, removedKeys) {
       removed: removedKeys,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: "ChocoDeLaVega"
-    });
+    }, { merge: true });
     console.log("✓ Overrides sauvegardés");
   } catch(e) {
     console.error("Erreur sauvegarde overrides:", e);
@@ -2498,7 +2498,8 @@ function renderMatch() {
 
   document.getElementById("start-match-btn").onclick = () => {
     if (matchInProgress) return;
-    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), [], userRating, cpuRating);
+    const cpuPlayers = titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean);
+    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), cpuPlayers, userRating, cpuRating);
   };
 }
 
@@ -2603,7 +2604,7 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
   resultEl.innerHTML = "";
 
   const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi";
-  const cpuName = "Équipe Aléatoire";
+  const cpuName = "Équipe RUGBIX";
 
   let userScore = 0;
   let cpuScore = 0;
@@ -2611,7 +2612,7 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
   const ratingDiff = userRating - cpuRating;
   const userAdvantage = 0.5 + Math.max(-0.3, Math.min(0.3, ratingDiff / 100));
 
-  const events = generateMatchEvents(userName, cpuName, userAdvantage);
+  const events = generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuPlayers);
 
   let idx = 0;
   const scoreEl = document.createElement("div");
@@ -2710,7 +2711,7 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
   playNextEvent();
 }
 
-function generateMatchEvents(userName, cpuName, userAdvantage) {
+function generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuPlayers) {
   const events = [];
   events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, important: true });
 
@@ -2746,6 +2747,14 @@ function generateMatchEvents(userName, cpuName, userAdvantage) {
     ]
   };
 
+  // Pioche le nom d'un joueur au hasard dans l'équipe concernée, avec repli sur
+  // le nom d'équipe si la liste de joueurs est vide (sécurité).
+  function pickPlayerName(players, fallbackName) {
+    if (!players || players.length === 0) return fallbackName;
+    const p = players[Math.floor(Math.random() * players.length)];
+    return p?.name || fallbackName;
+  }
+
   const minutes = [];
   let m = 3;
   while (m < 80) {
@@ -2756,7 +2765,9 @@ function generateMatchEvents(userName, cpuName, userAdvantage) {
   minutes.forEach(minute => {
     const isUserEvent = Math.random() < userAdvantage;
     const team = isUserEvent ? "user" : "cpu";
-    const name = isUserEvent ? userName : cpuName;
+    const name = isUserEvent
+      ? pickPlayerName(userPlayers, userName)
+      : pickPlayerName(cpuPlayers, cpuName);
 
     const roll = Math.random();
     let type, points, textPool;
@@ -3448,7 +3459,8 @@ function bindAdminEvents() {
       }
 
       await db.collection("playersOverrides").doc("data").set(
-        { ...existing, added, removed, notes, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        { ...existing, added, removed, notes, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
       );
 
       PLAYERS.push(newPlayer);
@@ -3554,7 +3566,8 @@ function bindAdminEvents() {
       else edited.push(editEntry);
 
       await db.collection("playersOverrides").doc("data").set(
-        { added, removed, edited, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: "ChocoDeLaVega" }
+        { added, removed, edited, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: "ChocoDeLaVega" },
+        { merge: true }
       );
 
       // Appliquer localement immédiatement
@@ -3665,7 +3678,8 @@ function bindAdminEvents() {
       }
 
       await db.collection("playersOverrides").doc("data").set(
-        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
       );
 
       const playerName = key.split("|")[0];
@@ -3689,7 +3703,8 @@ function bindAdminEvents() {
       delete notesMap[key];
       delete statsMap[key];
       await db.collection("playersOverrides").doc("data").set(
-        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        { ...existing, notes: notesMap, stats: statsMap, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
       );
       delete noteOverrides[key];
       delete statsOverrides[key];
