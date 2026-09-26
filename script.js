@@ -2498,8 +2498,11 @@ function renderMatch() {
 
   document.getElementById("start-match-btn").onclick = () => {
     if (matchInProgress) return;
-    const cpuPlayers = titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean);
-    startMatchSimulation(filledTitulaires.map(s => equipe[s.id]), cpuPlayers, userRating, cpuRating);
+    const cpuTitulaires = titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean);
+    const cpuBanc = cpuSquad.bancSlots.map(s => cpuSquad.bancMap[s.id]).filter(Boolean);
+    const userTitulaires = filledTitulaires.map(s => equipe[s.id]);
+    const userBancPlayers = bancSlots.map(s => equipe[s.id]).filter(Boolean);
+    startMatchSimulation(userTitulaires, userBancPlayers, cpuTitulaires, cpuBanc, userRating, cpuRating);
   };
 }
 
@@ -2591,7 +2594,7 @@ function generateRandomCpuSquad() {
 // ---------------------------------------------------------
 // SIMULATION DU MATCH — commentaire en direct + score
 // ---------------------------------------------------------
-function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
+function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, userRating, cpuRating) {
   matchInProgress = true;
   const startBtn = document.getElementById("start-match-btn");
   const logEl = document.getElementById("match-log");
@@ -2612,7 +2615,7 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
   const ratingDiff = userRating - cpuRating;
   const userAdvantage = 0.5 + Math.max(-0.3, Math.min(0.3, ratingDiff / 100));
 
-  const events = generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuPlayers);
+  const events = generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, userBanc, cpuTitulaires, cpuBanc);
 
   let idx = 0;
   const scoreEl = document.createElement("div");
@@ -2645,7 +2648,7 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
     }
 
     const line = document.createElement("div");
-    line.className = "match-log-line" + (ev.team ? ` match-log-${ev.team}` : "");
+    line.className = "match-log-line" + (ev.team ? ` match-log-${ev.team}` : "") + (ev.isSub ? " match-log-sub" : "");
     line.innerHTML = `<span class="match-log-minute">${ev.minute}'</span> ${ev.text}`;
     logEl.appendChild(line);
     logEl.scrollTop = logEl.scrollHeight;
@@ -2711,9 +2714,9 @@ function startMatchSimulation(userPlayers, cpuPlayers, userRating, cpuRating) {
   playNextEvent();
 }
 
-function generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuPlayers) {
+function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, userBanc, cpuTitulaires, cpuBanc) {
   const events = [];
-  events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, important: true });
+  events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, team: null, important: true });
 
   const templates = {
     essai: [
@@ -2747,14 +2750,21 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuP
     ]
   };
 
-  // Pioche le nom d'un joueur au hasard dans l'équipe concernée, avec repli sur
-  // le nom d'équipe si la liste de joueurs est vide (sécurité).
-  function pickPlayerName(players, fallbackName) {
-    if (!players || players.length === 0) return fallbackName;
-    const p = players[Math.floor(Math.random() * players.length)];
+  // Effectif actif de chaque équipe — évolue au fil des remplacements
+  const activeUser = [...userTitulaires];
+  const activeCpu = [...cpuTitulaires];
+  const usedUserSubs = new Set();
+  const usedCpuSubs = new Set();
+
+  // Pioche le nom d'un joueur au hasard dans l'effectif actif de l'équipe,
+  // avec repli sur le nom d'équipe si la liste est vide (sécurité).
+  function pickPlayerName(activeList, fallbackName) {
+    if (!activeList || activeList.length === 0) return fallbackName;
+    const p = activeList[Math.floor(Math.random() * activeList.length)];
     return p?.name || fallbackName;
   }
 
+  // Génère les minutes des événements de jeu (essais, pénalités, etc.)
   const minutes = [];
   let m = 3;
   while (m < 80) {
@@ -2762,12 +2772,28 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuP
     m += 4 + Math.floor(Math.random() * 8);
   }
 
+  // Génère 0 à 3 minutes de remplacement par équipe, réparties entre 45' et 75'
+  // (moment réaliste pour faire tourner l'effectif en rugby)
+  function pickSubMinutes(banc) {
+    if (!banc || banc.length === 0) return [];
+    const maxSubs = Math.min(banc.length, 1 + Math.floor(Math.random() * 3));
+    const used = new Set();
+    while (used.size < maxSubs) {
+      used.add(45 + Math.floor(Math.random() * 30));
+    }
+    return Array.from(used).sort((a, b) => a - b);
+  }
+
+  const userSubMinutes = pickSubMinutes(userBanc);
+  const cpuSubMinutes = pickSubMinutes(cpuBanc);
+
+  // Construit les événements de jeu (essais, pénalités, temps neutres)
   minutes.forEach(minute => {
     const isUserEvent = Math.random() < userAdvantage;
     const team = isUserEvent ? "user" : "cpu";
     const name = isUserEvent
-      ? pickPlayerName(userPlayers, userName)
-      : pickPlayerName(cpuPlayers, cpuName);
+      ? pickPlayerName(activeUser, userName)
+      : pickPlayerName(activeCpu, cpuName);
 
     const roll = Math.random();
     let type, points, textPool;
@@ -2796,11 +2822,35 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userPlayers, cpuP
       text = `<strong>${name}</strong> ${phrase}`;
     }
 
-    events.push({ minute, text, team: points > 0 ? team : null, points, important });
+    // La couleur de la ligne suit toujours l'équipe qui joue l'action,
+    // que des points soient marqués ou non.
+    events.push({ minute, text, team, points, important });
   });
 
+  // Construit les événements de remplacement (entrée d'un joueur du banc,
+  // sortie d'un titulaire tiré au hasard dans l'effectif actif)
+  function buildSubEvents(subMinutes, banc, activeList, usedSubs, team, teamLabel) {
+    subMinutes.forEach(minute => {
+      const availableSubs = banc.filter(p => !usedSubs.has(getCardKey(p)));
+      if (availableSubs.length === 0 || activeList.length === 0) return;
+
+      const incoming = availableSubs[Math.floor(Math.random() * availableSubs.length)];
+      const outIdx = Math.floor(Math.random() * activeList.length);
+      const outgoing = activeList[outIdx];
+
+      usedSubs.add(getCardKey(incoming));
+      activeList[outIdx] = incoming; // le remplaçant devient actif, peut être cité ensuite
+
+      const text = `🔄 Changement chez ${teamLabel} : <strong>${incoming.name}</strong> remplace <strong>${outgoing.name}</strong>.`;
+      events.push({ minute, text, team, points: 0, important: false, isSub: true });
+    });
+  }
+
+  buildSubEvents(userSubMinutes, userBanc, activeUser, usedUserSubs, "user", userName);
+  buildSubEvents(cpuSubMinutes, cpuBanc, activeCpu, usedCpuSubs, "cpu", cpuName);
+
   events.sort((a, b) => a.minute - b.minute);
-  events.push({ minute: 80, text: "Coup de sifflet final ! 🏉", important: true });
+  events.push({ minute: 80, text: "Coup de sifflet final ! 🏉", team: null, important: true });
 
   return events;
 }

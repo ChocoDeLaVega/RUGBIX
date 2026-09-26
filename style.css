@@ -3338,6 +3338,22 @@ textarea.contact-input {
   color: #ff6b6b;
 }
 
+.match-log-line.match-log-user {
+  border-left: 2px solid rgba(5,223,114,0.35);
+  padding-left: 0.5rem;
+}
+
+.match-log-line.match-log-cpu {
+  border-left: 2px solid rgba(255,107,107,0.35);
+  padding-left: 0.5rem;
+}
+
+.match-log-line.match-log-sub {
+  font-style: italic;
+  opacity: 0.85;
+  background: rgba(255,255,255,0.03);
+}
+
 .match-result {
   text-align: center;
   margin-top: 1.2rem;
