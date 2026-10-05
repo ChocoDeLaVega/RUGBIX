@@ -362,6 +362,7 @@ async function loadPlayersOverrides() {
           if (edit.team && TEAMS[edit.team]) PLAYERS[idx].team = edit.team;
           if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
+          if (edit.nat) PLAYERS[idx].nat = edit.nat;
           const newKey = makeKey(PLAYERS[idx]);
 
           // Migrer les overrides de l'ancienne clé vers la nouvelle si le club a changé
@@ -1643,6 +1644,21 @@ function sortPlayers(players, mode, tab = "collection") {
 // ---------------------------------------------------------
 // DRAPEAUX
 // ---------------------------------------------------------
+
+// Liste des nationalités disponibles dans le jeu (code 3 lettres -> nom FR)
+// Utilisée pour la liste déroulante de sélection dans le panneau Admin.
+const NATIONALITIES = {
+  FRA: "France", ANG: "Angleterre", ECO: "Écosse", IRL: "Irlande",
+  ITA: "Italie", ESP: "Espagne", ALL: "Allemagne", POR: "Portugal",
+  GEO: "Géorgie", RUS: "Russie", MDA: "Moldavie", BEL: "Belgique",
+  POL: "Pologne",
+  NZL: "Nouvelle-Zélande", AUS: "Australie", FIJ: "Fidji", TGA: "Tonga",
+  SAM: "Samoa", ARG: "Argentine", CHI: "Chili", URU: "Uruguay",
+  AFS: "Afrique du Sud", ZIM: "Zimbabwe", KEN: "Kenya", CMR: "Cameroun",
+  SEN: "Sénégal", COD: "RD Congo", RDC: "RD Congo", NAM: "Namibie",
+  PDG: "Madagascar", USA: "États-Unis", CAN: "Canada"
+};
+
 /**
  * Retourne un <img> de drapeau via flagcdn.com (codes ISO 2 lettres)
  * Fiable sur tous les navigateurs/OS y compris Windows
@@ -1660,7 +1676,8 @@ function getFlagEmoji(natCode) {
     "CHI": "cl", "URU": "uy", "USA": "us", "CAN": "ca",
     "SAM": "ws", "TGA": "to", "TON": "to", "FIJ": "fj", "JAP": "jp",
     "SEN": "sn", "CIV": "ci", "ZWE": "zw", "ZIM": "zw",
-    "KEN": "ke", "CMR": "cm", "CAM": "cm", "COD": "cd", "NAM": "na"
+    "KEN": "ke", "CMR": "cm", "CAM": "cm", "COD": "cd", "NAM": "na",
+    "POL": "pl"
   };
 
   const clean = natCode.toUpperCase().trim();
@@ -1683,7 +1700,8 @@ function getNatLabel(natCode) {
     CHI: "CHI", URU: "URU", USA: "USA", CAN: "CAN",
     SAM: "SAM", TGA: "TGA", TON: "TGA", FIJ: "FIJ", JAP: "JPN",
     SEN: "SEN", CIV: "CIV", ZWE: "ZIM", ZIM: "ZIM",
-    KEN: "KEN", CMR: "CMR", CAM: "CMR", COD: "COD", NAM: "NAM"
+    KEN: "KEN", CMR: "CMR", CAM: "CMR", COD: "COD", NAM: "NAM",
+    POL: "POL"
   };
   const clean = (natCode || "").toUpperCase().trim();
   return names[clean] || clean;
@@ -3032,6 +3050,9 @@ async function renderAdmin() {
               </select>
             </div>
             <input type="text" id="edit-player-positions" class="admin-input" placeholder="Poste(s) — sépare par | (ex: Pilier|Talonneur)">
+            <select id="edit-player-nat" class="admin-select">
+              ${Object.entries(NATIONALITIES).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}
+            </select>
             <button id="admin-edit-player-btn" class="admin-btn">💾 Sauvegarder pour tous</button>
             <div id="admin-edit-player-status" class="admin-status"></div>
           </div>
@@ -3584,6 +3605,7 @@ function bindAdminEvents() {
     document.getElementById("edit-player-team").value = player.team;
     document.getElementById("edit-player-rarity").value = player.rarity;
     document.getElementById("edit-player-positions").value = (player.positions||[]).join("|");
+    document.getElementById("edit-player-nat").value = (player.nat || "FRA").toUpperCase();
     document.getElementById("edit-player-fields").classList.remove("hidden");
     document.getElementById("admin-edit-player-status").textContent = "";
   };
@@ -3597,6 +3619,7 @@ function bindAdminEvents() {
     const newRarity = document.getElementById("edit-player-rarity").value;
     const newPositions = document.getElementById("edit-player-positions").value
       .split("|").map(p=>p.trim()).filter(Boolean);
+    const newNat = document.getElementById("edit-player-nat").value;
 
     if (!newPositions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
 
@@ -3611,7 +3634,7 @@ function bindAdminEvents() {
       // Stocker les modifications dans un champ "edited"
       const edited = existing.edited || [];
       const editIdx = edited.findIndex(e => e.key === key);
-      const editEntry = { key, team: newTeam, rarity: newRarity, positions: newPositions };
+      const editEntry = { key, team: newTeam, rarity: newRarity, positions: newPositions, nat: newNat };
       if (editIdx >= 0) edited[editIdx] = editEntry;
       else edited.push(editEntry);
 
@@ -3626,11 +3649,12 @@ function bindAdminEvents() {
         PLAYERS[idx].team = newTeam;
         PLAYERS[idx].rarity = newRarity;
         PLAYERS[idx].positions = newPositions;
+        PLAYERS[idx].nat = newNat;
       }
 
       const playerName = key.split("|")[0];
       st.textContent = `✓ ${playerName} modifié pour tous !`;
-      try { await logAdminAction("joueur_modifié", `${playerName} → club:${TEAMS[newTeam]?.name||newTeam}, rareté:${newRarity}`); } catch(_) {}
+      try { await logAdminAction("joueur_modifié", `${playerName} → club:${TEAMS[newTeam]?.name||newTeam}, rareté:${newRarity}, nat:${newNat}`); } catch(_) {}
     } catch(e) {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
