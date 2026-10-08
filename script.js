@@ -2411,7 +2411,10 @@ function doCompoType() {
 
     if (eligible.length === 0) return;
 
-    eligible.sort((a, b) => (RARITY_RANK[b.rarity]||0) - (RARITY_RANK[a.rarity]||0));
+    // Classement par note générale (sous-stats pondérées selon le poste),
+    // pas par rareté — un joueur Commune bien noté à ce poste passe devant
+    // une Légende moins adaptée.
+    eligible.sort((a, b) => getPlayerNote(b) - getPlayerNote(a));
     newEquipe[slot.id] = eligible[0];
   });
 
