@@ -2,6 +2,10 @@
 // LOGIQUE DU JEU - RUGBIX
 // =========================================================
 
+// Copie de la base d'origine (data.js) AVANT l'application des modifications Firestore.
+// Sert, lors d'un import, à calculer ce qui doit être enregistré dans playersOverrides.
+const BASE_PLAYERS = JSON.parse(JSON.stringify(PLAYERS));
+
 // xvUsed stocké en mémoire (chargé depuis Firestore au login)
 let xvUsedInMemory = false;
 // ⚙️ DEV_MODE — toggleable depuis le panneau admin
@@ -10,7 +14,10 @@ let DEV_MODE = false;
 
 // dailyLast est stocké en mémoire (chargé depuis Firestore au login)
 // localStorage n'est PAS utilisé pour éviter le contournement par refresh
-let dailyLastUsed = null; // format "YYYY-MM-DD"
+let dailyLastUsed = null;
+
+// Date (jour local) du dernier achat du Pack Club — chargée depuis Firestore
+let clubPackLast = null; // format "YYYY-MM-DD"
 
 function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -167,6 +174,7 @@ function setupProgressSync() {
       coins = data.coins !== undefined ? data.coins : coins;
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
+      if (data.clubPackLast) clubPackLast = data.clubPackLast;
       if (data.banc && BANC_CONFIGS[data.banc]) currentBanc = data.banc;
 
       if (data.equipe) {
@@ -203,6 +211,7 @@ async function loadProgressFromFirebase() {
       coins = data.coins !== undefined ? data.coins : 200;
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
+      clubPackLast = data.clubPackLast || null;
       if (data.banc && BANC_CONFIGS[data.banc]) currentBanc = data.banc;
       // Restaurer l'équipe : on stocke { slotId: "name|team" } et on retrouve le joueur
       if (data.equipe) {
@@ -253,6 +262,7 @@ function saveData() {
         banc: currentBanc,
         xvUsed: xvUsedInMemory,
         dailyLast: dailyLastUsed || null,
+        clubPackLast: clubPackLast || null,
         matchHistory,
         matchStats,
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -281,6 +291,7 @@ async function saveToFirebase() {
       banc: currentBanc,
       xvUsed: xvUsedInMemory,
       dailyLast: dailyLastUsed || null,
+        clubPackLast: clubPackLast || null,
       matchHistory,
       matchStats,
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
@@ -363,6 +374,10 @@ async function loadPlayersOverrides() {
           if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
           if (edit.nat) PLAYERS[idx].nat = edit.nat;
+          if (edit.clubs !== undefined) {
+            if (edit.clubs && edit.clubs.length) PLAYERS[idx].clubs = edit.clubs;
+            else delete PLAYERS[idx].clubs;
+          }
           const newKey = makeKey(PLAYERS[idx]);
 
           // Migrer les overrides de l'ancienne clé vers la nouvelle si le club a changé
@@ -537,6 +552,7 @@ function getAuthError(code) {
 // ---------------------------------------------------------
 function init() {
   renderPacks();
+  startClubPackTicker();
   setupTabs();
   updateSecondaryFilters("collection");
   renderCollection();
@@ -696,7 +712,8 @@ function updateCoinsDisplay() {
   // Met à jour l'état des boutons d'ouverture (assez de pièces ou non)
   document.querySelectorAll(".open-btn").forEach(btn => {
     const cost = parseInt(btn.dataset.cost, 10);
-    btn.disabled = coins < cost;
+    // un pack verrouillé (déjà obtenu, déjà acheté aujourd'hui...) reste désactivé même si les RUGBIZ suffisent
+    btn.disabled = btn.dataset.locked === "1" || coins < cost;
   });
 }
 
@@ -869,16 +886,167 @@ function updatePosteFilterForClub(tab) {
 // ---------------------------------------------------------
 // AFFICHAGE DES PACKS
 // ---------------------------------------------------------
+// ---------------------------------------------------------
+// PACK CLUB (pack du jour : un seul club, sans légendes, achetable 1 fois par jour)
+// ===== PACK CLUB : DEBUT =====
+// Pour modifier le prix, le nombre de cartes ou les chances : changer l'objet CLUB_PACK ci-dessous.
+// ---------------------------------------------------------
+const CLUB_PACK_MIN_PLAYERS = 10; // un club doit avoir au moins 10 joueurs (hors légendes) pour être tiré
+const CLUB_PACK = {
+  id: "club",
+  name: "Pack Club",
+  description: "5 cartes du club du jour — sans légendes",
+  cardsCount: 5,
+  cost: 400,
+  clubDaily: true,
+  // mêmes chances que le Pack Pro D2
+  weightModifier: { commune: 0.4, rare: 1.5, epique: 1.8, international: 1.5, legendaire: 0 }
+};
+
+// Ajouté à la liste des packs, juste après le Pack Pro D2 (par prix croissant)
+if (!PACKS.some(p => p.id === CLUB_PACK.id)) {
+  const afterIdx = PACKS.findIndex(p => p.id === "premium");
+  PACKS.splice(afterIdx >= 0 ? afterIdx + 1 : PACKS.length, 0, { ...CLUB_PACK });
+}
+
+// Jour calendaire local (YYYY-MM-DD) : le club change et l'achat se débloque à minuit, heure de l'utilisateur
+function getLocalDayStr(date = new Date()) {
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${m}-${d}`;
+}
+
+// Clubs pouvant alimenter le pack (dans l'ordre de TEAMS)
+function getClubPackCandidates() {
+  const counts = {};
+  PLAYERS.forEach(p => {
+    if (p.rarity !== "legendaire" && TEAMS[p.team]) counts[p.team] = (counts[p.team] || 0) + 1;
+  });
+  return Object.keys(TEAMS).filter(k => (counts[k] || 0) >= CLUB_PACK_MIN_PLAYERS);
+}
+
+// Générateur pseudo-aléatoire à graine : même graine = même suite
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function clubCycleOrder(clubs, cycle) {
+  const rng = mulberry32(cycle * 7919 + 104729);
+  const order = [...clubs];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+// Club du jour : identique pour tous les joueurs un même jour, sans serveur.
+// Les clubs défilent dans un ordre mélangé : chacun revient une fois par cycle,
+// et jamais le même club deux jours de suite.
+function getClubOfTheDay(dayStr = getLocalDayStr()) {
+  const clubs = getClubPackCandidates();
+  if (clubs.length === 0) return null;
+  const [y, m, d] = dayStr.split("-").map(Number);
+  const dayNumber = Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+  const n = clubs.length;
+  const cycle = Math.floor(dayNumber / n);
+  const order = clubCycleOrder(clubs, cycle);
+  if (n >= 3 && cycle > 0) {
+    const prev = clubCycleOrder(clubs, cycle - 1);
+    if (order[0] === prev[n - 1]) [order[0], order[1]] = [order[1], order[0]];
+  }
+  return order[((dayNumber % n) + n) % n];
+}
+
+// Tire les cartes : joueurs du club uniquement, légendes exclues, sans doublon dans le pack,
+// selon les chances de rareté du pack.
+function drawClubPackCards(pack, clubKey) {
+  const seen = new Set();
+  const remaining = PLAYERS.filter(p => {
+    if (p.team !== clubKey || p.rarity === "legendaire" || !RARITIES[p.rarity]) return false;
+    const key = getCardKey(p);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const mods = pack.weightModifier || {};
+  const cards = [];
+  for (let i = 0; i < pack.cardsCount && remaining.length > 0; i++) {
+    const weights = remaining.map(p => RARITIES[p.rarity].weight * (mods[p.rarity] ?? 1));
+    let roll = Math.random() * weights.reduce((a, b) => a + b, 0);
+    let idx = weights.findIndex(w => (roll -= w) <= 0);
+    if (idx < 0) idx = remaining.length - 1;
+    cards.push(remaining.splice(idx, 1)[0]);
+  }
+  return cards;
+}
+
+// Achat limité à 1 par jour — la date est conservée dans Firestore (pas de contournement par rafraîchissement)
+function isClubPackAvailable() {
+  if (DEV_MODE) return true;
+  return clubPackLast !== getLocalDayStr();
+}
+
+function markClubPackUsed() {
+  if (DEV_MODE) return;
+  clubPackLast = getLocalDayStr();
+  if (currentUser) {
+    db.collection("users").doc(currentUser.uid).update({ clubPackLast })
+      .catch(e => console.error("Erreur save clubPackLast:", e));
+  }
+}
+// ===== PACK CLUB : FIN =====
+
+// Horloge : met à jour le compte à rebours du pack et rafraîchit les packs quand le jour change
+// (si l'onglet reste ouvert après minuit, le club affiché change tout seul)
+let clubPackRenderedDay = null;
+let clubPackTickerStarted = false;
+
+function startClubPackTicker() {
+  if (clubPackTickerStarted) return;
+  clubPackTickerStarted = true;
+  setInterval(() => {
+    if (clubPackRenderedDay && getLocalDayStr() !== clubPackRenderedDay) {
+      renderPacks();
+      return;
+    }
+    const el = document.getElementById("club-pack-countdown");
+    if (!el) return;
+    const now = new Date();
+    const next = new Date(now);
+    next.setDate(next.getDate() + 1);
+    next.setHours(0, 0, 0, 0);
+    const diff = Math.max(0, next - now);
+    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+    el.textContent = `⏱ Nouveau club dans ${h}:${m}:${s}`;
+  }, 1000);
+}
+
 function renderPacks() {
   const container = document.getElementById("packs-container");
   container.innerHTML = "";
 
   const xvUsed = !DEV_MODE && xvUsedInMemory;
   const dailyAvailable = isDailyAvailable();
+  const clubAvailable = isClubPackAvailable();
 
   PACKS.forEach(pack => {
     const isXV = pack.id === "xv_demarrage";
     const isDaily = pack.id === "coup_envoi";
+    const isClub = pack.id === "club";
+
+    // Pack Club : club du jour (le pack n'est pas affiché si aucun club n'est éligible)
+    const clubKey = isClub ? getClubOfTheDay() : null;
+    if (isClub && !clubKey) return;
 
     // Masquer le pack XV Démarrage s'il a déjà été utilisé (hors DEV_MODE)
     if (isXV && xvUsed) return;
@@ -888,7 +1056,9 @@ function renderPacks() {
     let cardClass = "pack-card";
     if (isXV) cardClass += " pack-card-xv";
     if (isDaily) cardClass += " pack-card-daily";
+    if (isClub) cardClass += " pack-card-club";
     div.className = cardClass;
+    if (isClub) div.style.setProperty("--club-color", TEAMS[clubKey].color);
 
     // Coût affiché
     let costHtml;
@@ -917,19 +1087,34 @@ function renderPacks() {
       } else {
         btnLabel = "⚡ Ouvrir — GRATUIT";
       }
+    } else if (isClub) {
+      if (!clubAvailable) {
+        btnDisabled = true;
+        btnLabel = "Déjà acheté — à demain";
+        extraHtml = `<div id="club-pack-countdown" class="daily-countdown"></div>`;
+      } else {
+        btnLabel = "Acheter";
+      }
     }
 
     let icon = "📦";
     if (isXV) icon = "🏉";
     if (isDaily) icon = "⚡";
+    if (isClub) icon = "🏟️";
+
+    // Le club du jour est écrit en toutes lettres sur le pack
+    const clubHtml = isClub
+      ? `<div class="pack-club-name">${TEAMS[clubKey].name}</div>`
+      : "";
 
     div.innerHTML = `
       <div class="pack-icon">${icon}</div>
       <h3>${pack.name}</h3>
+      ${clubHtml}
       <p>${pack.description}</p>
       ${costHtml}
       ${extraHtml}
-      <button class="${btnClass}" data-pack-id="${pack.id}" data-cost="${pack.cost}" ${btnDisabled ? "disabled" : ""}>
+      <button class="${btnClass}" data-pack-id="${pack.id}" data-cost="${pack.cost}" ${btnDisabled ? 'disabled data-locked="1"' : ""}>
         ${btnLabel}
       </button>
     `;
@@ -947,6 +1132,7 @@ function renderPacks() {
   // Démarrer le compte à rebours si le daily est utilisé
   if (!dailyAvailable) startDailyCountdown();
 
+  clubPackRenderedDay = getLocalDayStr();
   updateCoinsDisplay();
 }
 
@@ -1026,6 +1212,22 @@ function openPack(packId, cost) {
     saveData();
     updateCoinsDisplay();
     showCoupEnvoiModal(pack, result);
+    renderPacks();
+    return;
+  }
+
+  // Pack Club : club du jour, 1 achat par jour
+  if (pack.id === "club") {
+    if (!isClubPackAvailable()) return;
+    const clubKey = getClubOfTheDay();
+    if (!clubKey) return;
+    coins -= cost;
+    const clubCards = drawClubPackCards(pack, clubKey);
+    clubCards.forEach(card => addCardToCollection(card, false));
+    markClubPackUsed();
+    saveData();
+    updateCoinsDisplay();
+    showOpeningModal({ ...pack, name: `${pack.name} — ${TEAMS[clubKey].name}` }, clubCards);
     renderPacks();
     return;
   }
@@ -2451,9 +2653,22 @@ function renderMatch() {
   const filledBanc = bancSlots.filter(s => equipe[s.id]);
 
   // Générer l'équipe CPU complète (titulaires + banc, type de banc aléatoire)
-  const cpuSquad = generateRandomCpuSquad();
+  // Adversaire : équipe RUGBIX aléatoire ou club choisi (légendes comprises)
+  const playableClubs = Object.keys(TEAMS).filter(k => clubCanField(k));
+  if (matchOpponent !== "rugbix" && !playableClubs.includes(matchOpponent)) matchOpponent = "rugbix";
+  const isClubMatch = matchOpponent !== "rugbix";
+  const cpuSquad = isClubMatch ? generateClubSquad(matchOpponent) : generateRandomCpuSquad();
+  const cpuLabel = isClubMatch ? TEAMS[matchOpponent].name : RUGBIX_TEAM_NAME;
 
   container.innerHTML = `
+    <div class="match-opponent-row">
+      <label for="match-opponent-select">Adversaire :</label>
+      <select id="match-opponent-select" ${matchInProgress ? "disabled" : ""}>
+        <option value="rugbix">${RUGBIX_TEAM_NAME} (aléatoire)</option>
+        ${playableClubs.map(k => `<option value="${k}">${TEAMS[k].name}</option>`).join("")}
+      </select>
+      <button id="match-reroll-btn" class="banc-btn" ${matchInProgress ? "disabled" : ""}>🎲 Autre composition</button>
+    </div>
     <div class="match-top-row">
       <div class="match-main-col">
         <div class="match-setup">
@@ -2465,7 +2680,7 @@ function renderMatch() {
           <div class="match-vs">VS</div>
           <div class="match-team-card match-team-cpu">
             <div class="match-team-label">Adversaire</div>
-            <div class="match-team-name" id="match-cpu-name">Équipe Rugbix</div>
+            <div class="match-team-name" id="match-cpu-name">${cpuLabel}</div>
             <div class="match-team-rating" id="match-cpu-rating">—</div>
           </div>
         </div>
@@ -2493,7 +2708,7 @@ function renderMatch() {
         <div class="match-lineup-grid" id="match-user-banc"></div>
       </div>
       <div class="match-lineup-col">
-        <div class="match-lineup-title match-lineup-title-cpu">Équipe Rugbix (${cpuSquad.bancType})</div>
+        <div class="match-lineup-title match-lineup-title-cpu">${cpuLabel} (${cpuSquad.bancType})</div>
         <div class="match-lineup-subtitle">Titulaires</div>
         <div class="match-lineup-grid" id="match-cpu-titulaires"></div>
         <div class="match-lineup-subtitle">Remplaçants</div>
@@ -2517,13 +2732,24 @@ function renderMatch() {
   const cpuRating = computeTeamRating(titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean));
   document.getElementById("match-cpu-rating").textContent = `Collectif : ${cpuRating}`;
 
+  const opponentSelect = document.getElementById("match-opponent-select");
+  opponentSelect.value = matchOpponent;
+  opponentSelect.onchange = () => {
+    if (matchInProgress) { opponentSelect.value = matchOpponent; return; }
+    matchOpponent = opponentSelect.value;
+    renderMatch();
+  };
+  document.getElementById("match-reroll-btn").onclick = () => {
+    if (!matchInProgress) renderMatch();
+  };
+
   document.getElementById("start-match-btn").onclick = () => {
     if (matchInProgress) return;
     const cpuTitulaires = titulaires.map(s => cpuSquad.titulairesMap[s.id]).filter(Boolean);
     const cpuBanc = cpuSquad.bancSlots.map(s => cpuSquad.bancMap[s.id]).filter(Boolean);
     const userTitulaires = filledTitulaires.map(s => equipe[s.id]);
     const userBancPlayers = bancSlots.map(s => equipe[s.id]).filter(Boolean);
-    startMatchSimulation(userTitulaires, userBancPlayers, cpuTitulaires, cpuBanc, userRating, cpuRating);
+    startMatchSimulation(userTitulaires, userBancPlayers, cpuTitulaires, cpuBanc, userRating, cpuRating, cpuLabel);
   };
 }
 
@@ -2552,7 +2778,7 @@ function renderMatchHistoryPanel() {
   historyList.innerHTML = matchHistory.map(m => `
     <div class="match-history-row ${resultClasses[m.result]}">
       <span class="match-history-icon">${resultIcons[m.result]}</span>
-      <span class="match-history-label">${resultLabels[m.result]}</span>
+      <span class="match-history-label">${resultLabels[m.result]}${m.opponent ? ` <span class="match-history-opp">vs ${escapeHtml(m.opponent)}</span>` : ""}</span>
       <span class="match-history-score">${m.userScore} - ${m.cpuScore}</span>
     </div>
   `).join("");
@@ -2576,6 +2802,83 @@ function computeTeamRating(players) {
   const total = players.reduce((sum, p) => sum + getPlayerNote(p), 0);
   return Math.round(total / players.length);
 }
+
+// ===== MATCH CLUB : DEBUT =====
+// Adversaire choisi dans l'onglet Match : "rugbix" (équipe aléatoire) ou la clé d'un club de TEAMS.
+let matchOpponent = "rugbix";
+const RUGBIX_TEAM_NAME = "Équipe RUGBIX";
+
+function shuffledCopy(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Joueurs d'un club : ceux de ce club + les légendes qui y ont joué (liste « clubs » de leur carrière)
+function getClubPool(clubKey) {
+  const seen = new Set(); // un joueur présent en double dans la base ne peut être aligné qu'une fois
+  return PLAYERS.filter(p => {
+    if (!(p.team === clubKey || (p.clubs || []).includes(clubKey))) return false;
+    const key = getCardKey(p);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Place un joueur différent sur chaque poste (poste compatible), de façon aléatoire.
+// Recherche par chemin augmentant : si une solution existe, elle est trouvée.
+// Les postes impossibles à pourvoir restent vides.
+function assignPlayersToSlots(pool, slots, usedKeys) {
+  const players = shuffledCopy(pool).filter(p => !usedKeys.has(getCardKey(p)));
+  const slotPostes = slots.map(s => (s.remplacant ? s.postes : [s.poste]));
+  const slotOfPlayer = new Array(players.length).fill(-1);
+
+  function tryAssign(si, seen) {
+    for (let i = 0; i < players.length; i++) {
+      if (seen[i]) continue;
+      if (!(players[i].positions || []).some(pos => slotPostes[si].includes(pos))) continue;
+      seen[i] = true;
+      if (slotOfPlayer[i] < 0 || tryAssign(slotOfPlayer[i], seen)) {
+        slotOfPlayer[i] = si;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  slots.forEach((_, si) => tryAssign(si, []));
+
+  const map = {};
+  slotOfPlayer.forEach((si, i) => { if (si >= 0) map[slots[si].id] = players[i]; });
+  return map;
+}
+
+// Un club est jouable s'il peut aligner un XV complet (un joueur par poste)
+function clubCanField(clubKey) {
+  const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
+  const map = assignPlayersToSlots(getClubPool(clubKey), titulaires, new Set());
+  return Object.keys(map).length === titulaires.length;
+}
+
+// Composition aléatoire d'un club : XV + banc (type 5-3, 6-2 ou 7-1 tiré au hasard)
+function generateClubSquad(clubKey) {
+  const pool = getClubPool(clubKey);
+  const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
+  const titulairesMap = assignPlayersToSlots(pool, titulaires, new Set());
+  const used = new Set(Object.values(titulairesMap).map(getCardKey));
+
+  const bancKeys = Object.keys(BANC_CONFIGS);
+  const bancType = bancKeys[Math.floor(Math.random() * bancKeys.length)];
+  const bancSlots = BANC_CONFIGS[bancType].slots.map(s => ({ ...s, remplacant: true }));
+  const bancMap = assignPlayersToSlots(pool, bancSlots, used);
+
+  return { titulairesMap, bancMap, bancSlots, bancType };
+}
+// ===== MATCH CLUB : FIN =====
 
 function generateRandomCpuSquad() {
   const titulaires = EQUIPE_SLOTS.filter(s => !s.remplacant);
@@ -2615,7 +2918,7 @@ function generateRandomCpuSquad() {
 // ---------------------------------------------------------
 // SIMULATION DU MATCH — commentaire en direct + score
 // ---------------------------------------------------------
-function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, userRating, cpuRating) {
+function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, userRating, cpuRating, cpuName = RUGBIX_TEAM_NAME) {
   matchInProgress = true;
   const startBtn = document.getElementById("start-match-btn");
   const logEl = document.getElementById("match-log");
@@ -2628,7 +2931,6 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
   resultEl.innerHTML = "";
 
   const userName = currentUser?.displayName || currentUser?.email?.split("@")[0] || "Toi";
-  const cpuName = "Équipe RUGBIX";
 
   let userScore = 0;
   let cpuScore = 0;
@@ -2643,13 +2945,21 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
   scoreEl.className = "match-live-score";
   logEl.appendChild(scoreEl);
 
+  // Effectif sur le terrain (baisse avec les cartons jaunes et rouges)
+  const fullUser = userTitulaires.length;
+  const fullCpu = cpuTitulaires.length;
+  let fieldUser = fullUser;
+  let fieldCpu = fullCpu;
+
   function updateLiveScore() {
+    const userField = fieldUser < fullUser ? ` <span class="match-live-field">(${fieldUser})</span>` : "";
+    const cpuField = fieldCpu < fullCpu ? ` <span class="match-live-field">(${fieldCpu})</span>` : "";
     scoreEl.innerHTML = `
-      <span class="match-live-team">${userName}</span>
+      <span class="match-live-team">${userName}${userField}</span>
       <span class="match-live-points">${userScore}</span>
       <span class="match-live-sep">-</span>
       <span class="match-live-points">${cpuScore}</span>
-      <span class="match-live-team">${cpuName}</span>
+      <span class="match-live-team">${cpuName}${cpuField}</span>
     `;
   }
   updateLiveScore();
@@ -2665,8 +2975,12 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
     if (ev.points) {
       if (ev.team === "user") userScore += ev.points;
       else cpuScore += ev.points;
-      updateLiveScore();
     }
+    if (ev.field) {
+      fieldUser = ev.field.user;
+      fieldCpu = ev.field.cpu;
+    }
+    if (ev.points || ev.field) updateLiveScore();
 
     const line = document.createElement("div");
     line.className = "match-log-line" + (ev.team ? ` match-log-${ev.team}` : "") + (ev.isSub ? " match-log-sub" : "");
@@ -2697,7 +3011,7 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
     else matchStats.losses += 1;
 
     // Ajouter le match en tête d'historique — le plus récent écrase le plus ancien (max 10)
-    matchHistory.unshift({ result, userScore, cpuScore });
+    matchHistory.unshift({ result, userScore, cpuScore, opponent: cpuName });
     if (matchHistory.length > 10) matchHistory.length = 10;
 
     // Rafraîchir immédiatement le panneau historique/stats
@@ -2737,64 +3051,265 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
 
 function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, userBanc, cpuTitulaires, cpuBanc) {
   const events = [];
-  events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, team: null, important: true });
 
-  const templates = {
-    essai: [
-      "perce la défense et aplatit en coin ! Essai !",
-      "profite d'un relais parfait pour aplatir sous les poteaux ! Essai !",
-      "termine une action collective magnifique par un essai !",
-      "intercepte une passe et file marquer à 60 mètres ! Essai splendide !",
-      "conclut une séquence de pick-and-go par un essai en force !"
+  // ---------------------------------------------------------
+  // RÔLES : chaque phrase de commentaire est liée à un type de joueur,
+  // pour que les avants soient cités en mêlée / touche / maul et que seuls
+  // les joueurs de ligne arrière tapent pénalités et drops.
+  // ---------------------------------------------------------
+  const FORWARD_POS = ["Pilier", "Talonneur", "Deuxième ligne", "Troisième ligne"];
+  const BACK_POS = ["Demi de mêlée", "Demi d'ouverture", "Centre", "Ailier", "Arrière"];
+  const ROLES = {
+    forward:   { pos: FORWARD_POS },
+    talonneur: { pos: ["Talonneur"], fallback: "forward" },
+    back:      { pos: BACK_POS },
+    half:      { pos: ["Demi de mêlée", "Demi d'ouverture"], fallback: "back" },
+    scrumhalf: { pos: ["Demi de mêlée"], fallback: "half" },
+    kicker:    { pos: ["Demi d'ouverture", "Arrière", "Demi de mêlée"], fallback: "back" },
+    dropper:   { pos: ["Demi d'ouverture", "Arrière"], fallback: "kicker" },
+    finisher:  { pos: ["Ailier", "Arrière", "Centre"], fallback: "back" },
+    any:       { pos: null }
+  };
+
+  // Choisit un joueur de l'effectif actif correspondant au rôle demandé
+  function pickPlayerObj(active, role) {
+    if (!active || active.length === 0) return null;
+    let r = role;
+    while (r) {
+      const def = ROLES[r];
+      if (!def || !def.pos) break;
+      const pool = active.filter(p => (p.positions || []).some(pos => def.pos.includes(pos)));
+      if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+      r = def.fallback;
+    }
+    return active[Math.floor(Math.random() * active.length)];
+  }
+
+  function pickPlayer(active, role, fallbackName) {
+    const p = pickPlayerObj(active, role);
+    return (p && p.name) || fallbackName;
+  }
+
+  function randomOf(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  // ---------------------------------------------------------
+  // TEXTES : [rôle, phrase]. {p} = nom du joueur qui réalise l'action.
+  // ---------------------------------------------------------
+  const T = {
+    essai_avant: [
+      ["forward", "{p} conclut une séquence de pick-and-go par un essai en force !"],
+      ["forward", "{p} termine un ballon porté parfaitement huilé par un essai !"],
+      ["forward", "{p} s'écroule derrière la ligne au bout d'une poussée collective du pack : essai !"],
+      ["forward", "Le maul progresse inexorablement et {p} aplatit ! Essai !"]
+    ],
+    essai_arriere: [
+      ["finisher", "{p} perce la défense et aplatit en coin ! Essai !"],
+      ["finisher", "{p} profite d'un relais parfait pour aplatir sous les poteaux ! Essai !"],
+      ["finisher", "{p} termine une action collective magnifique par un essai !"],
+      ["finisher", "{p} intercepte une passe et file marquer à 60 mètres ! Essai splendide !"],
+      ["finisher", "{p} repique à l'intérieur... et c'est au bout ! Essai !"],
+      ["finisher", "Quel crochet dévastateur de {p} ! La défense est totalement mystifiée. Essai !"],
+      ["finisher", "Isolé à 50 mètres, {p} dépose tout le monde à la course ! Essai !"],
+      ["finisher", "Percée plein champ ! Le ballon circule jusqu'à l'aile... {p} aplatit ! Essai !"],
+      ["finisher", "{p} crochète, raffûte... et plonge entre les poteaux ! Essai magistral !"],
+      ["finisher", "{p} aplatit en coin au terme d'un mouvement d'envergure ! Essai !"]
     ],
     penalite: [
-      "obtient une pénalité et l'ouvreur ajuste sans trembler.",
-      "profite d'une faute adverse en touche pour tenter les poteaux.",
-      "récupère un ballon en mêlée et tente sa chance au pied."
+      ["kicker", "{p} s'élance dans un silence assourdissant... La trajectoire est idéale, ça passe entre les perches !"],
+      ["kicker", "{p} ajuste la pénalité sans trembler."],
+      ["kicker", "{p} profite d'une faute adverse en touche pour tenter les poteaux... et c'est bon !"],
+      ["kicker", "Le ballon de {p} heurte le poteau rentrant, trois points de plus au tableau d'affichage !"],
+      ["kicker", "Pénalité obtenue en mêlée : {p} tente les poteaux... et ça passe !"]
     ],
     dropgoal: [
-      "tente un drop audacieux... et ça passe !"
+      ["dropper", "{p} tente un drop audacieux... et ça passe !"],
+      ["dropper", "{p} lâche un drop de 40 mètres au milieu de la défense... Il est bon !"]
     ],
-    neutre: [
-      "domine la mêlée mais perd le ballon en sortie.",
-      "tape en touche pour gagner du terrain.",
-      "se fait plaquer juste avant la ligne d'en-but !",
-      "voit son essai refusé après visionnage vidéo.",
-      "concède une pénalité pour un plaquage haut.",
-      "relance depuis son camp mais est repoussé en touche.",
-      "perd le ballon en mêlée fermée.",
-      "grappille quelques mètres sur un temps de jeu long.",
-      "manque sa tentative de pénalité, le ballon passe à côté.",
-      "fait une passe décisive mais l'ailier échappe le ballon.",
-      "se montre solide en défense sur plusieurs temps de jeu.",
-      "profite d'un ballon de récupération pour relancer le jeu."
+    conquete: [
+      ["forward", "{p} et le pack font reculer leur vis-à-vis sur huit mètres ! Poussée collective dévastatrice !"],
+      ["forward", "L'arbitre bras tendu : pénalité pour l'attelage dominant de {p} et de ses partenaires !"],
+      ["scrumhalf", "Ballon introduit, extraction rapide de {p} pour amorcer le lancement."],
+      ["forward", "Prise de balle parfaite de {p} en fond d'alignement !"],
+      ["forward", "Le maul se structure autour de {p}... La cocotte s'enclenche et progresse rapidement !"],
+      ["forward", "Contre tactique en l'air de {p}, ballon volé à l'alignement adverse !"],
+      ["forward", "{p} et le pack enclenchent la marche avant... Mêlée enfoncée et ballon récupéré !"],
+      ["forward", "Poussée en travers de {p} sanctionnée, le ballon change de camp !"],
+      ["forward", "Pression énorme en mêlée, le ballon échappe à {p} !"],
+      ["forward", "Contre acrobatique de {p} en l'air ! Le ballon est récupéré par la défense !"],
+      ["talonneur", "Lancer trop long de {p} qui lobe tout l'alignement... Aubaine pour les défenseurs !"],
+      ["forward", "Ballon porté de {p} totalement écroulé et étouffé, l'arbitre rend la possession à la défense !"],
+      ["forward", "Ballon arraché des bras dans le maul par {p} ! Quel travail des avants !"],
+      ["forward", "{p} domine la mêlée mais perd le ballon en sortie."],
+      ["forward", "{p} perd le ballon en mêlée fermée."]
+    ],
+    main: [
+      ["back", "{p} redouble à l'intérieur, la défense est prise à revers !"],
+      ["back", "Passe après contact (offload) lumineuse de {p} dans l'intervalle !"],
+      ["back", "Fixation plein champ de {p}, la passe sautée pour décaler l'ailier en bout de ligne !"],
+      ["back", "{p} fait une passe décisive mais l'ailier échappe le ballon."],
+      ["back", "{p} relance depuis son camp mais est repoussé en touche."],
+      ["back", "{p} grappille quelques mètres sur un temps de jeu long."]
+    ],
+    pied: [
+      ["kicker", "Une chandelle millimétrée de {p} sous la pression."],
+      ["kicker", "Coup de pied par-dessus la défense de {p}... quelle inspiration !"],
+      ["kicker", "Une trouvaille d'occupation parfaite de {p} dans le dos des ailiers."],
+      ["kicker", "{p} dégage son camp avec une longueur impressionnante."],
+      ["kicker", "Chandelle monumentale de {p} pour mettre l'adversaire sous pression."],
+      ["half", "{p} tape en touche pour gagner du terrain."]
+    ],
+    defense: [
+      ["any", "Plaquage cathédrale de {p} ! Le stade retient son souffle."],
+      ["forward", "Énorme grattage de {p} dans le regroupement, ballon récupéré !"],
+      ["any", "Le mur défensif de {p} et de ses partenaires ne cède pas d'un millimètre sur cette ligne de 5 mètres."],
+      ["any", "Un arrêt buffet magistral de {p} qui stoppe net l'offensive."],
+      ["forward", "{p} gratte le ballon comme un mort de faim dans le regroupement !"],
+      ["any", "Un sauvetage héroïque de {p} à deux mètres de la ligne d'essai !"],
+      ["forward", "Grattage chirurgical de {p} dans le regroupement ! Le ballon est libéré !"],
+      ["forward", "Porteur de balle isolé ! {p} lui gratte le ballon en un éclair !"],
+      ["back", "{p} gratte le cuir dans les pieds, contre-attaque éclair à suivre !"],
+      ["any", "Cartouche magistrale de {p} au plaquage ! Le ballon gicle des bras !"],
+      ["any", "{p} se montre solide en défense sur plusieurs temps de jeu."],
+      ["back", "Interception supersonique de {p} ! Il a lu la passe sautée comme dans un livre !"]
+    ],
+    erreur: [
+      ["any", "{p} est sanctionné pour ne pas s'être libéré au sol ! Le ballon change de mains."],
+      ["any", "Sanctionné ! {p} ne s'est pas écarté de la zone de plaqueur-plaqué."],
+      ["any", "Hors-jeu flagrant de {p} dans la ligne défensive, l'arbitre revient à la faute."],
+      ["any", "{p} concède une pénalité pour un plaquage haut."],
+      ["any", "Plaquage haut de {p} sans circonstance atténuante : la sanction tombe sans hésitation !"],
+      ["any", "L'arbitre ne tolère aucun débat : pénalité pour contestation orale de {p} !"],
+      ["any", "En-avant de {p} sous la pression défensive... Mêlée à suivre."],
+      ["back", "En-avant de {p} sous la chandelle... Mêlée à suivre !"],
+      ["back", "Mauvaise transmission de {p} dans l'intervalle, la passe termine directement en touche !"],
+      ["scrumhalf", "{p} se fait chiper le ballon à la sortie du couloir !"],
+      ["any", "{p} voit son essai refusé après visionnage vidéo."],
+      ["kicker", "{p} manque sa tentative de pénalité, le ballon passe à côté."]
+    ],
+    arbitre: [
+      "L'arbitre forme un rectangle avec ses mains... On fait appel à la vidéo !",
+      "Arrêt du jeu, révision des images sous tous les angles pour vérifier s'il y a bien essai.",
+      "Consultation du TMO pour analyser la hauteur du contact à l'impact.",
+      "L'arbitre ne tolère aucun débat : pénalité pour contestation orale !",
+      "Accumulation de fautes répétées, l'arbitre sort le premier avertissement capitaine.",
+      "Avantage en cours signalé par le bras tendu de l'arbitre !",
+      "L'avantage ne profitant pas, l'arbitre revient à la faute initiale.",
+      "Passage à vide signalé sur la combinaison : balle rendue à l'adversaire.",
+      "L'arbitre estime que le ballon est devenu injouable dans le regroupement : mêlée à refaire.",
+      "Décision très litigieuse qui fait réagir vivement le banc de touche et les tribunes !",
+      "Un coup de sifflet autoritaire pour ramener un peu de calme entre les deux capitaines.",
+      "Décision logique et pédagogique de l'arbitre central pour tenir son match.",
+      "Le public gronde, mais la décision du corps arbitral reste inébranlable."
+    ],
+    carton_jaune: [
+      ["any", "🟨 Carton jaune pour {p} ! Plaquage haut sans circonstance atténuante : dix minutes dans le fond du couloir."],
+      ["any", "🟨 Accumulation de fautes répétées : l'arbitre sort le carton jaune à {p} !"],
+      ["any", "🟨 {p} écope d'un carton jaune pour avoir ralenti le ballon de façon délibérée."],
+      ["forward", "🟨 Mêlée écroulée volontairement : carton jaune pour {p} !"],
+      ["any", "🟨 Hors-jeu volontaire de {p} pour stopper l'action : carton jaune !"]
+    ],
+    carton_rouge: [
+      ["any", "🟥 Carton rouge ! {p} est expulsé pour un plaquage dangereux, il ne reviendra pas."],
+      ["any", "🟥 Carton rouge direct pour {p} après un geste dangereux : sortie définitive !"],
+      ["any", "🟥 {p} voit rouge pour un geste d'antijeu : l'arbitre ne laisse aucune place au doute !"]
+    ],
+    avant_match: [
+      "Les tribunes sont pleines à craquer et le stade explose de couleurs !",
+      "La bandas chauffe le public : l'ambiance est électrique avant le coup d'envoi !",
+      "Regards fixes dans le couloir des vestiaires, la tension est palpable avant le coup d'envoi.",
+      "Des virages en feu qui chantent à s'en déchirer la voix pour l'entrée des joueurs."
+    ],
+    apres_match: [
+      "Direction la buvette pour la troisième mi-temps, là où les rivalités du terrain s'effacent autour d'un verre.",
+      "Les supporters raccompagnent leurs héros sous une haie d'honneur improvisée."
     ]
   };
 
-  // Effectif actif de chaque équipe — évolue au fil des remplacements
+  // ---------------------------------------------------------
+  // PHASES DE JEU : pondération du tirage à chaque temps fort
+  // ---------------------------------------------------------
+  const PHASES = [
+    ["essai", 25], ["penalite", 14], ["dropgoal", 4], ["essai_penalite", 2],
+    ["conquete", 18], ["main", 9], ["pied", 8], ["defense", 10], ["erreur", 7], ["arbitre", 3],
+    ["carton_jaune", 4], ["carton_rouge", 1]
+  ];
+  const PHASE_TOTAL = PHASES.reduce((s, p) => s + p[1], 0);
+  function pickPhase() {
+    let r = Math.random() * PHASE_TOTAL;
+    for (const [key, w] of PHASES) {
+      r -= w;
+      if (r < 0) return key;
+    }
+    return "conquete";
+  }
+
+  function withName(template, name) {
+    return template.split("{p}").join(`<strong>${name}</strong>`);
+  }
+
+  // Effectifs actifs, qui évoluent au fil des remplacements
   const activeUser = [...userTitulaires];
   const activeCpu = [...cpuTitulaires];
-  const usedUserSubs = new Set();
-  const usedCpuSubs = new Set();
+  const fullSize = { user: userTitulaires.length, cpu: cpuTitulaires.length };
+  const yellowCarded = { user: new Set(), cpu: new Set() }; // joueurs déjà avertis d'un jaune
+  const queue = []; // temps forts, remplacements et retours de carton jaune, triés par minute
 
-  // Pioche le nom d'un joueur au hasard dans l'effectif actif de l'équipe,
-  // avec repli sur le nom d'équipe si la liste est vide (sécurité).
-  function pickPlayerName(activeList, fallbackName) {
-    if (!activeList || activeList.length === 0) return fallbackName;
-    const p = activeList[Math.floor(Math.random() * activeList.length)];
-    return p?.name || fallbackName;
+  function fieldCounts() {
+    return { user: activeUser.length, cpu: activeCpu.length };
   }
 
-  // Génère les minutes des événements de jeu (essais, pénalités, etc.)
-  const minutes = [];
-  let m = 3;
-  while (m < 80) {
-    minutes.push(m);
-    m += 4 + Math.floor(Math.random() * 8);
+  // Chaque joueur en moins fait perdre ~10 points de probabilité de jouer le ballon :
+  // l'équipe à 14 subit davantage d'actions adverses (jaune = 10 min, rouge = jusqu'à la fin).
+  function currentAdvantage() {
+    const missUser = fullSize.user - activeUser.length;
+    const missCpu = fullSize.cpu - activeCpu.length;
+    return Math.max(0.15, Math.min(0.85, userAdvantage + 0.10 * (missCpu - missUser)));
   }
 
-  // Génère 0 à 3 minutes de remplacement par équipe, réparties entre 45' et 75'
-  // (moment réaliste pour faire tourner l'effectif en rugby)
+  events.push({ minute: 0, text: `Coup d'envoi ! <strong>${userName}</strong> affronte <strong>${cpuName}</strong>.`, team: null, points: 0, important: true });
+  events.push({ minute: 0, text: randomOf(T.avant_match), team: null, points: 0, important: false });
+
+  // ---------------------------------------------------------
+  // REMPLACEMENTS : un remplaçant n'entre que si un titulaire a au moins
+  // un poste en commun avec lui. Un joueur entré en jeu ne ressort pas.
+  // ---------------------------------------------------------
+  const usedSubs = { user: new Set(), cpu: new Set() };
+  const cameOn = { user: new Set(), cpu: new Set() };
+  const sharesPosition = (a, b) => (a.positions || []).some(pos => (b.positions || []).includes(pos));
+
+  function applySub(minute, side) {
+    const bench = side === "user" ? userBanc : cpuBanc;
+    const active = side === "user" ? activeUser : activeCpu;
+    const label = side === "user" ? userName : cpuName;
+
+    const candidates = (bench || [])
+      .filter(p => !usedSubs[side].has(getCardKey(p)))
+      .sort(() => Math.random() - 0.5);
+
+    for (const incoming of candidates) {
+      const outIdxs = [];
+      active.forEach((p, i) => {
+        if (!cameOn[side].has(getCardKey(p)) && sharesPosition(p, incoming)) outIdxs.push(i);
+      });
+      if (outIdxs.length === 0) continue; // aucun titulaire compatible : on essaie un autre remplaçant
+
+      const outIdx = outIdxs[Math.floor(Math.random() * outIdxs.length)];
+      const outgoing = active[outIdx];
+      usedSubs[side].add(getCardKey(incoming));
+      cameOn[side].add(getCardKey(incoming));
+      active[outIdx] = incoming;
+
+      events.push({
+        minute,
+        text: `🔄 Changement chez ${label} : <strong>${incoming.name}</strong> remplace <strong>${outgoing.name}</strong>.`,
+        team: side, points: 0, important: false, isSub: true
+      });
+      return;
+    }
+  }
+
   function pickSubMinutes(banc) {
     if (!banc || banc.length === 0) return [];
     const maxSubs = Math.min(banc.length, 1 + Math.floor(Math.random() * 3));
@@ -2802,76 +3317,157 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
     while (used.size < maxSubs) {
       used.add(45 + Math.floor(Math.random() * 30));
     }
-    return Array.from(used).sort((a, b) => a - b);
+    return Array.from(used);
   }
 
-  const userSubMinutes = pickSubMinutes(userBanc);
-  const cpuSubMinutes = pickSubMinutes(cpuBanc);
+  // ---------------------------------------------------------
+  // CARTONS : jaune = le joueur sort 10 minutes puis revient ;
+  // rouge (ou 2e jaune) = sortie définitive, l'équipe finit à 14.
+  // ---------------------------------------------------------
+  function giveCard(minute, side, kind) {
+    const active = side === "user" ? activeUser : activeCpu;
+    const label = side === "user" ? userName : cpuName;
+    if (active.length <= 11) return; // sécurité : jamais moins de 11 joueurs
 
-  // Construit les événements de jeu (essais, pénalités, temps neutres)
-  minutes.forEach(minute => {
-    const isUserEvent = Math.random() < userAdvantage;
-    const team = isUserEvent ? "user" : "cpu";
-    const name = isUserEvent
-      ? pickPlayerName(activeUser, userName)
-      : pickPlayerName(activeCpu, cpuName);
+    const [role, tpl] = randomOf(T[kind]);
+    const player = pickPlayerObj(active, role);
+    if (!player) return;
+    const key = getCardKey(player);
 
-    const roll = Math.random();
-    let type, points, textPool;
-
-    if (roll < 0.28) {
-      type = "essai"; points = Math.random() < 0.75 ? 7 : 5;
-      textPool = templates.essai;
-    } else if (roll < 0.45) {
-      type = "penalite"; points = 3;
-      textPool = templates.penalite;
-    } else if (roll < 0.5) {
-      type = "dropgoal"; points = 3;
-      textPool = templates.dropgoal;
-    } else {
-      type = "neutre"; points = 0;
-      textPool = templates.neutre;
-    }
-
-    const phrase = textPool[Math.floor(Math.random() * textPool.length)];
-    const important = type === "essai" || type === "dropgoal";
-
+    let isRed = kind === "carton_rouge";
     let text;
-    if (type === "essai") {
-      text = `<strong>${name}</strong> ${phrase}${points === 7 ? "" : " (transformation manquée)"}`;
+    if (!isRed && yellowCarded[side].has(key)) {
+      isRed = true; // deuxième jaune = rouge
+      text = `🟥 Deuxième carton jaune pour <strong>${player.name}</strong> : c'est un carton rouge, sortie définitive !`;
     } else {
-      text = `<strong>${name}</strong> ${phrase}`;
+      text = withName(tpl, player.name);
     }
 
-    // La couleur de la ligne suit toujours l'équipe qui joue l'action,
-    // que des points soient marqués ou non.
-    events.push({ minute, text, team, points, important });
-  });
+    active.splice(active.indexOf(player), 1);
 
-  // Construit les événements de remplacement (entrée d'un joueur du banc,
-  // sortie d'un titulaire tiré au hasard dans l'effectif actif)
-  function buildSubEvents(subMinutes, banc, activeList, usedSubs, team, teamLabel) {
-    subMinutes.forEach(minute => {
-      const availableSubs = banc.filter(p => !usedSubs.has(getCardKey(p)));
-      if (availableSubs.length === 0 || activeList.length === 0) return;
+    if (isRed) {
+      text += ` ${label} terminera le match à ${active.length}.`;
+    } else {
+      yellowCarded[side].add(key);
+      if (minute + 10 <= 79) {
+        text += ` ${label} évolue à ${active.length} pendant 10 minutes.`;
+        queue.push({ minute: minute + 10, order: 0, kind: "return", side, player });
+      } else {
+        text += ` ${label} évolue à ${active.length} jusqu'à la fin du match.`;
+      }
+    }
 
-      const incoming = availableSubs[Math.floor(Math.random() * availableSubs.length)];
-      const outIdx = Math.floor(Math.random() * activeList.length);
-      const outgoing = activeList[outIdx];
+    events.push({ minute, text, team: side, points: 0, important: true, field: fieldCounts(), isCard: true });
+  }
 
-      usedSubs.add(getCardKey(incoming));
-      activeList[outIdx] = incoming; // le remplaçant devient actif, peut être cité ensuite
-
-      const text = `🔄 Changement chez ${teamLabel} : <strong>${incoming.name}</strong> remplace <strong>${outgoing.name}</strong>.`;
-      events.push({ minute, text, team, points: 0, important: false, isSub: true });
+  function returnFromBin(minute, side, player) {
+    const active = side === "user" ? activeUser : activeCpu;
+    const label = side === "user" ? userName : cpuName;
+    active.push(player);
+    events.push({
+      minute,
+      text: `⏱️ Dix minutes écoulées : <strong>${player.name}</strong> revient sur le terrain. ${label} est de nouveau à ${active.length}.`,
+      team: side, points: 0, important: false, field: fieldCounts()
     });
   }
 
-  buildSubEvents(userSubMinutes, userBanc, activeUser, usedUserSubs, "user", userName);
-  buildSubEvents(cpuSubMinutes, cpuBanc, activeCpu, usedCpuSubs, "cpu", cpuName);
+  // ---------------------------------------------------------
+  // UN TEMPS FORT DU MATCH
+  // ---------------------------------------------------------
+  function playMoment(minute) {
+    const isUser = Math.random() < currentAdvantage();
+    const team = isUser ? "user" : "cpu";
+    const active = isUser ? activeUser : activeCpu;
+    const teamName = isUser ? userName : cpuName;
+    const phase = pickPhase();
 
-  events.sort((a, b) => a.minute - b.minute);
-  events.push({ minute: 80, text: "Coup de sifflet final ! 🏉", team: null, important: true });
+    if (phase === "arbitre") {
+      events.push({ minute, text: randomOf(T.arbitre), team: null, points: 0, important: false });
+      return;
+    }
+
+    if (phase === "carton_jaune" || phase === "carton_rouge") {
+      // le carton sanctionne l'équipe qui commet la faute : on tire l'équipe fautive au hasard
+      giveCard(minute, Math.random() < 0.5 ? "user" : "cpu", phase);
+      return;
+    }
+
+    if (phase === "essai_penalite") {
+      events.push({
+        minute,
+        text: `Geste d'antijeu manifeste pour empêcher une action d'essai... Essai de pénalité accordé à <strong>${teamName}</strong> !`,
+        team, points: 7, important: true
+      });
+      return;
+    }
+
+    if (phase === "essai") {
+      const pool = Math.random() < 0.35 ? T.essai_avant : T.essai_arriere;
+      const [role, tpl] = randomOf(pool);
+      const points = Math.random() < 0.75 ? 7 : 5; // transformé ou non
+      const text = withName(tpl, pickPlayer(active, role, teamName)) + (points === 7 ? "" : " (transformation manquée)");
+      events.push({ minute, text, team, points, important: true });
+      return;
+    }
+
+    if (phase === "penalite" || phase === "dropgoal") {
+      const [role, tpl] = randomOf(T[phase]);
+      events.push({
+        minute,
+        text: withName(tpl, pickPlayer(active, role, teamName)),
+        team, points: 3, important: phase === "dropgoal"
+      });
+      return;
+    }
+
+    // Phases sans points : conquête, jeu courant, jeu au pied, défense, erreurs
+    const [role, tpl] = randomOf(T[phase]);
+    events.push({ minute, text: withName(tpl, pickPlayer(active, role, teamName)), team, points: 0, important: false });
+  }
+
+  // ---------------------------------------------------------
+  // DÉROULÉ CHRONOLOGIQUE : temps forts + remplacements dans l'ordre,
+  // pour que les remplaçants entrés en jeu puissent ensuite être cités.
+  // ---------------------------------------------------------
+  let m = 3;
+  while (m < 80) {
+    queue.push({ minute: m, order: 1, kind: "play" });
+    m += 4 + Math.floor(Math.random() * 8);
+  }
+  pickSubMinutes(userBanc).forEach(min => queue.push({ minute: min, order: 0, kind: "sub-user" }));
+  pickSubMinutes(cpuBanc).forEach(min => queue.push({ minute: min, order: 0, kind: "sub-cpu" }));
+
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.minute - b.minute || a.order - b.order);
+    const item = queue.shift();
+    if (item.kind === "sub-user") applySub(item.minute, "user");
+    else if (item.kind === "sub-cpu") applySub(item.minute, "cpu");
+    else if (item.kind === "return") returnFromBin(item.minute, item.side, item.player);
+    else playMoment(item.minute);
+  }
+
+  // ---------------------------------------------------------
+  // COUP DE SIFFLET FINAL + ambiance de fin de match selon le résultat
+  // ---------------------------------------------------------
+  let userPts = 0, cpuPts = 0;
+  events.forEach(e => {
+    if (e.points) {
+      if (e.team === "user") userPts += e.points;
+      else cpuPts += e.points;
+    }
+  });
+
+  events.push({ minute: 80, text: "Coup de sifflet final ! 🏉", team: null, points: 0, important: true });
+  events.push({ minute: 80, text: randomOf(T.apres_match), team: null, points: 0, important: false });
+
+  if (userPts !== cpuPts) {
+    const winner = userPts > cpuPts ? userName : cpuName;
+    const loser = userPts > cpuPts ? cpuName : userName;
+    const text = Math.random() < 0.5
+      ? `Une victoire fêtée comme il se doit dans le vestiaire de <strong>${winner}</strong> : les chants résonnent dans tout le stade !`
+      : `Conférence de presse électrique chez <strong>${loser}</strong> : le coach n'a pas du tout apprécié la prestation de ses avants.`;
+    events.push({ minute: 80, text, team: null, points: 0, important: false });
+  }
 
   return events;
 }
@@ -3121,12 +3717,20 @@ async function renderAdmin() {
       </div>
 
       <div class="admin-card admin-card-full">
-        <h3>💾 Exporter la base de données</h3>
+        <h3>💾 Exporter / importer la base de données</h3>
         <p class="admin-note" style="margin-top:0;margin-bottom:0.8rem">
           Génère un fichier <code>data.js</code> à jour incluant tous les ajouts, suppressions, modifications de postes/clubs/raretés et notes personnalisées effectués depuis ce panneau. Télécharge-le et remplace le fichier existant sur ton hébergement pour rendre les changements permanents dans le code source.
         </p>
         <button id="admin-export-data-btn" class="admin-btn">⬇️ Télécharger data.js à jour</button>
         <div id="admin-export-status" class="admin-status"></div>
+
+        <div class="admin-edit-sep">Importer un fichier data.js</div>
+        <p class="admin-note" style="margin-top:0;margin-bottom:0.8rem">
+          Choisis un fichier <code>data.js</code> (par exemple un export que tu as retouché à la main). Un aperçu des changements s'affiche avant toute modification : ajouts et suppressions de joueurs, changements de club, de poste, de rareté ou de nationalité, notes et sous-notes. Le fichier est analysé sans être exécuté.
+        </p>
+        <input type="file" id="admin-import-file" class="admin-input" accept=".js,text/javascript,application/javascript">
+        <div id="admin-import-preview" class="admin-import-preview hidden"></div>
+        <div id="admin-import-status" class="admin-status"></div>
       </div>
 
       <div class="admin-card admin-card-full">
@@ -3281,6 +3885,9 @@ function bindAdminEvents() {
   // Charger l'historique
   loadAdminHistory();
 
+  // Importer un data.js
+  bindDataImport();
+
   // Exporter data.js à jour
   document.getElementById("admin-export-data-btn").onclick = () => {
     const st = document.getElementById("admin-export-status");
@@ -3348,6 +3955,11 @@ function bindAdminEvents() {
         // Bonus RUGBIZ aussi
         const userCoins = (doc.data()?.coins || 0) + result.bonus;
         await db.collection("users").doc(uid).update({ coins: userCoins });
+      }
+      // Pack Club : cartes du club du jour (sans légendes)
+      else if (pack.id === "club") {
+        const clubKey = getClubOfTheDay();
+        if (clubKey) drawn.push(...drawClubPackCards(pack, clubKey));
       }
       // Autres packs : tirage normal
       else {
@@ -3794,6 +4406,484 @@ function bindAdminEvents() {
 }
 
 // ---------------------------------------------------------
+// IMPORT data.js (panneau Admin)
+// ===== IMPORT data.js : DEBUT =====
+// Le fichier est ANALYSÉ (jamais exécuté) : aucun code du fichier ne tourne dans le navigateur.
+// ---------------------------------------------------------
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Analyse un littéral JavaScript (objets, tableaux, chaînes, nombres, commentaires)
+function parseJsLiteral(text, start) {
+  let i = start;
+  const fail = msg => { throw new Error(`${msg} (position ${i})`); };
+
+  function skip() {
+    for (;;) {
+      const c = text[i];
+      if (c === " " || c === "\n" || c === "\r" || c === "\t" || c === "\ufeff") { i++; continue; }
+      if (c === "/" && text[i + 1] === "/") { while (i < text.length && text[i] !== "\n") i++; continue; }
+      if (c === "/" && text[i + 1] === "*") {
+        const end = text.indexOf("*/", i + 2);
+        if (end < 0) fail("Commentaire non fermé");
+        i = end + 2;
+        continue;
+      }
+      break;
+    }
+  }
+
+  function parseString() {
+    const q = text[i];
+    i++;
+    let out = "";
+    const esc = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", "0": "\0" };
+    while (i < text.length) {
+      const c = text[i];
+      if (c === q) { i++; return out; }
+      if (c === "\\") {
+        const n = text[i + 1];
+        if (n === "u") { out += String.fromCharCode(parseInt(text.substr(i + 2, 4), 16)); i += 6; continue; }
+        out += Object.prototype.hasOwnProperty.call(esc, n) ? esc[n] : n;
+        i += 2;
+        continue;
+      }
+      if (c === "\n") fail("Chaîne non fermée");
+      out += c;
+      i++;
+    }
+    return fail("Chaîne non fermée");
+  }
+
+  function parseValue() {
+    skip();
+    const c = text[i];
+    if (c === "[") {
+      i++;
+      const arr = [];
+      for (;;) {
+        skip();
+        if (text[i] === "]") { i++; return arr; }
+        arr.push(parseValue());
+        skip();
+        if (text[i] === ",") i++;
+        else if (text[i] !== "]") fail("',' ou ']' attendu");
+      }
+    }
+    if (c === "{") {
+      i++;
+      const obj = {};
+      for (;;) {
+        skip();
+        if (text[i] === "}") { i++; return obj; }
+        let key;
+        if (text[i] === '"' || text[i] === "'") key = parseString();
+        else {
+          const m = /^[A-Za-z_$][\w$]*/.exec(text.slice(i, i + 80));
+          if (!m) fail("Nom de champ attendu");
+          key = m[0];
+          i += key.length;
+        }
+        if (key === "__proto__") fail("Champ interdit");
+        skip();
+        if (text[i] !== ":") fail("':' attendu");
+        i++;
+        obj[key] = parseValue();
+        skip();
+        if (text[i] === ",") i++;
+        else if (text[i] !== "}") fail("',' ou '}' attendu");
+      }
+    }
+    if (c === '"' || c === "'") return parseString();
+    const num = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(text.slice(i, i + 40));
+    if (num) { i += num[0].length; return Number(num[0]); }
+    for (const [word, val] of [["true", true], ["false", false], ["null", null], ["undefined", null]]) {
+      if (text.startsWith(word, i)) { i += word.length; return val; }
+    }
+    return fail("Valeur inattendue");
+  }
+
+  return parseValue();
+}
+
+// Trouve "const|let|var NOM = ..." dans le fichier et analyse sa valeur
+function extractJsAssignment(text, name) {
+  const m = new RegExp("(?:const|let|var)\\s+" + name + "\\s*=\\s*").exec(text);
+  if (!m) throw new Error(`« ${name} » est introuvable dans ce fichier`);
+  return parseJsLiteral(text, m.index + m[0].length);
+}
+
+// Lit PLAYERS ainsi que les listes ajoutées par « PLAYERS.push(...LEGENDS) » (structure du data.js d'origine)
+function extractAllPlayers(text) {
+  const list = extractJsAssignment(text, "PLAYERS");
+  if (!Array.isArray(list)) return list;
+  const all = [...list];
+  const re = /PLAYERS\s*\.\s*push\s*\(\s*\.\.\.\s*([A-Za-z_$][\w$]*)\s*\)/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const extra = extractJsAssignment(text, m[1]);
+    if (!Array.isArray(extra)) throw new Error(`« ${m[1]} » n'est pas une liste de joueurs`);
+    all.push(...extra);
+  }
+  return all;
+}
+
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// Poste mal orthographié (ex. « Trosième ligne ») : renvoie le poste connu le plus proche, s'il est unique
+function closestKnownPosition(x) {
+  if (typeof x !== "string") return null;
+  let best = null, bestD = 3, tie = false;
+  Object.keys(COEFFS_POSTES).forEach(k => {
+    const d = editDistance(x.toLowerCase(), k.toLowerCase());
+    if (d < bestD) { best = k; bestD = d; tie = false; }
+    else if (d === bestD) tie = true;
+  });
+  return best && !tie ? best : null;
+}
+
+// Vérifie chaque joueur du fichier. Toute erreur bloque l'import :
+// un joueur ignoré serait sinon considéré comme "supprimé".
+function normalizeImportedPlayers(list) {
+  const errors = [];
+  const warnings = [];
+  const players = [];
+  const seen = new Map();
+  const knownPos = Object.keys(COEFFS_POSTES);
+  if (!Array.isArray(list)) return { errors: ["PLAYERS n'est pas une liste de joueurs"], players, warnings };
+
+  list.forEach((raw, idx) => {
+    const where = `Joueur n°${idx + 1}${raw && raw.name ? " (" + raw.name + ")" : ""}`;
+    if (!raw || typeof raw !== "object") { errors.push(`${where} : entrée invalide`); return; }
+    let ok = true;
+    const bad = msg => { errors.push(`${where} : ${msg}`); ok = false; };
+
+    const p = {
+      name: String(raw.name || ""), // conservé tel quel : le nom fait partie de l'identifiant des cartes
+      team: raw.team,
+      positions: raw.positions,
+      rarity: raw.rarity,
+      nat: String(raw.nat || "FRA").toUpperCase().trim()
+    };
+    if (!p.name.trim()) bad("nom manquant");
+    if (!TEAMS[p.team]) bad(`club inconnu « ${p.team} »`);
+    if (!RARITIES[p.rarity]) bad(`rareté inconnue « ${p.rarity} »`);
+    if (!Array.isArray(p.positions) || !p.positions.length) bad("postes manquants");
+    else {
+      p.positions = p.positions.map(x => {
+        if (knownPos.includes(x)) return x;
+        const fixed = closestKnownPosition(x);
+        if (fixed) {
+          warnings.push(`${p.name || "Joueur n°" + (idx + 1)} : poste « ${x} » corrigé en « ${fixed} »`);
+          return fixed;
+        }
+        bad(`poste inconnu « ${x} »`);
+        return x;
+      });
+    }
+
+    if (raw.clubs !== undefined && raw.clubs !== null) {
+      if (Array.isArray(raw.clubs) && raw.clubs.every(c => typeof c === "string")) p.clubs = raw.clubs;
+      else bad("clubs de carrière invalides");
+    }
+    if (raw.stats !== undefined && raw.stats !== null) {
+      const st = raw.stats;
+      if (typeof st === "object" && STAT_KEYS.every(k => Number.isFinite(st[k]) && st[k] >= 20 && st[k] <= 99)) {
+        p.stats = Object.fromEntries(STAT_KEYS.map(k => [k, Math.round(st[k])]));
+      } else bad("sous-notes invalides (5 valeurs entre 20 et 99 attendues)");
+    }
+    if (raw.note !== undefined && raw.note !== null) {
+      if (Number.isFinite(raw.note) && raw.note >= 30 && raw.note <= 99) p.note = Math.round(raw.note);
+      else bad("note générale invalide (entre 30 et 99)");
+    }
+
+    const key = `${p.name}|${p.team}`;
+    if (seen.has(key)) {
+      const first = seen.get(key);
+      if (sameJson(first, p)) { warnings.push(`${p.name} : doublon identique ignoré`); return; }
+      bad(`« ${p.name} » apparaît deux fois pour ce club avec des valeurs différentes (${first.rarity}, ${first.positions.join("|")} / ${p.rarity}, ${p.positions.join("|")}) : garde une seule ligne dans le fichier`);
+    } else if (ok) {
+      seen.set(key, p);
+    }
+    if (ok) players.push(p);
+  });
+  return { errors, players, warnings };
+}
+
+const sameJson = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+
+function fieldsDiffer(a, b) {
+  return a.rarity !== b.rarity
+    || !sameJson(a.positions, b.positions)
+    || String(a.nat || "FRA").toUpperCase() !== String(b.nat || "FRA").toUpperCase()
+    || !sameJson(a.clubs, b.clubs);
+}
+
+// Compare deux listes de joueurs (clé = « nom|club »)
+function diffPlayerLists(fromList, toList) {
+  const keyOf = p => `${p.name}|${p.team}`;
+  const fromMap = new Map(fromList.map(p => [keyOf(p), p]));
+  const toMap = new Map(toList.map(p => [keyOf(p), p]));
+  const removed = [];
+  const added = [];
+  const edits = [];
+  fromMap.forEach((p, k) => { if (!toMap.has(k)) removed.push(p); });
+  toMap.forEach((p, k) => { if (!fromMap.has(k)) added.push(p); });
+  toMap.forEach((p, k) => {
+    const old = fromMap.get(k);
+    if (old && fieldsDiffer(old, p)) edits.push({ from: old, to: p });
+  });
+
+  // Changement de club : même nom, un seul joueur retiré ET un seul ajouté.
+  // On le traite comme une modification (les notes suivent le joueur) et non comme suppression + ajout.
+  const group = list => {
+    const m = new Map();
+    list.forEach(p => { const n = p.name.toLowerCase(); m.set(n, [...(m.get(n) || []), p]); });
+    return m;
+  };
+  const remBy = group(removed);
+  const addBy = group(added);
+  const transfers = [];
+  const pairedRemoved = new Set();
+  const pairedAdded = new Set();
+  remBy.forEach((rems, n) => {
+    const adds = addBy.get(n);
+    if (adds && rems.length === 1 && adds.length === 1) {
+      transfers.push({ from: rems[0], to: adds[0] });
+      pairedRemoved.add(rems[0]);
+      pairedAdded.add(adds[0]);
+    }
+  });
+
+  return {
+    removed: removed.filter(p => !pairedRemoved.has(p)),
+    added: added.filter(p => !pairedAdded.has(p)),
+    transfers, edits, fromMap, toMap
+  };
+}
+
+// Ce qui doit être stocké dans Firestore pour que « base d'origine + modifications » = fichier importé
+function buildImportOverrides(basePlayers, importedPlayers) {
+  const d = diffPlayerLists(basePlayers, importedPlayers);
+  const strip = p => {
+    const o = { name: p.name, team: p.team, positions: [...p.positions], rarity: p.rarity, nat: p.nat };
+    if (p.clubs) o.clubs = [...p.clubs];
+    return o;
+  };
+  const editEntry = (from, to) => ({
+    key: `${from.name}|${from.team}`,
+    team: to.team, rarity: to.rarity, positions: [...to.positions], nat: to.nat,
+    clubs: to.clubs ? [...to.clubs] : null
+  });
+
+  const added = d.added.map(strip);
+  const removed = d.removed.map(p => `${p.name}|${p.team}`);
+  const edited = [...d.transfers.map(t => editEntry(t.from, t.to)), ...d.edits.map(e => editEntry(e.from, e.to))];
+
+  // Notes et sous-notes (rangées sous la clé finale « nom|club »)
+  const baseOf = new Map();
+  d.toMap.forEach((p, k) => { if (d.fromMap.has(k)) baseOf.set(k, d.fromMap.get(k)); });
+  d.transfers.forEach(t => baseOf.set(`${t.to.name}|${t.to.team}`, t.from));
+  const notes = {};
+  const stats = {};
+  d.toMap.forEach((p, k) => {
+    const b = baseOf.get(k);
+    if (p.note !== undefined && (!b || b.note !== p.note)) notes[k] = p.note;
+    if (p.stats !== undefined && (!b || !sameJson(b.stats, p.stats))) stats[k] = p.stats;
+  });
+  return { added, removed, edited, notes, stats };
+}
+
+// Aperçu : ce qui va changer dans le jeu par rapport à l'état actuel
+function buildImportPreview(currentPlayers, importedPlayers) {
+  const d = diffPlayerLists(currentPlayers, importedPlayers);
+  const clubName = t => (TEAMS[t] && TEAMS[t].name) || t;
+  const label = p => `${p.name} (${clubName(p.team)})`;
+  const baseByKey = new Map(BASE_PLAYERS.map(p => [`${p.name}|${p.team}`, p]));
+
+  const describeEdit = (from, to) => {
+    const parts = [];
+    if (from.rarity !== to.rarity) parts.push(`rareté ${from.rarity} → ${to.rarity}`);
+    if (!sameJson(from.positions, to.positions)) parts.push(`postes ${(from.positions || []).join("|")} → ${to.positions.join("|")}`);
+    if (String(from.nat || "FRA").toUpperCase() !== String(to.nat || "FRA").toUpperCase()) parts.push(`nationalité ${from.nat || "FRA"} → ${to.nat}`);
+    if (!sameJson(from.clubs, to.clubs)) parts.push("clubs de carrière");
+    return `${to.name} : ${parts.join(", ")}`;
+  };
+
+  const lists = {
+    added: d.added.map(label),
+    removed: d.removed.map(label),
+    transfers: d.transfers.map(t => `${t.from.name} : ${clubName(t.from.team)} → ${clubName(t.to.team)}`),
+    edits: d.edits.map(e => describeEdit(e.from, e.to)),
+    notes: [], stats: [], cleared: []
+  };
+
+  const pairs = [];
+  d.toMap.forEach((imp, k) => { const cur = d.fromMap.get(k); if (cur) pairs.push([cur, imp]); });
+  d.transfers.forEach(t => pairs.push([t.from, t.to]));
+  pairs.forEach(([cur, imp]) => {
+    const ck = `${cur.name}|${cur.team}`;
+    const curNote = noteOverrides[ck] !== undefined ? noteOverrides[ck] : cur.note;
+    const curStats = statsOverrides[ck] !== undefined ? statsOverrides[ck] : cur.stats;
+    const base = baseByKey.get(ck);
+    if (imp.note !== undefined && imp.note !== curNote) lists.notes.push(`${imp.name} : ${curNote === undefined ? "auto" : curNote} → ${imp.note}`);
+    if (imp.note === undefined && noteOverrides[ck] !== undefined && !(base && base.note !== undefined)) lists.cleared.push(`${imp.name} : note personnalisée ${noteOverrides[ck]} retirée`);
+    if (imp.stats !== undefined && !sameJson(imp.stats, curStats)) lists.stats.push(`${imp.name} : sous-notes modifiées`);
+    if (imp.stats === undefined && statsOverrides[ck] !== undefined && !(base && base.stats !== undefined)) lists.cleared.push(`${imp.name} : sous-notes personnalisées retirées`);
+  });
+  return lists;
+}
+
+function planDataImport(text) {
+  const rawList = extractAllPlayers(text);
+  const { errors, players, warnings } = normalizeImportedPlayers(rawList);
+  if (errors.length) return { errors };
+  return {
+    errors: [],
+    warnings,
+    count: players.length,
+    preview: buildImportPreview(PLAYERS, players),
+    overrides: buildImportOverrides(BASE_PLAYERS, players)
+  };
+}
+// ===== IMPORT data.js : FIN =====
+
+// ---------------------------------------------------------
+// IMPORT data.js — interface (aperçu, confirmation, application)
+// ---------------------------------------------------------
+let pendingDataImport = null;
+
+function renderImportPreview(plan) {
+  const box = document.getElementById("admin-import-preview");
+  if (!box) return;
+  const L = plan.preview;
+  const sections = [
+    ["➕ Joueurs ajoutés", L.added],
+    ["🗑️ Joueurs supprimés", L.removed],
+    ["🔁 Changements de club", L.transfers],
+    ["✏️ Modifications (poste, rareté, nationalité…)", L.edits],
+    ["⭐ Notes générales modifiées", L.notes],
+    ["📊 Sous-notes modifiées", L.stats],
+    ["♻️ Notes / sous-notes personnalisées retirées", L.cleared]
+  ];
+  const total = sections.reduce((n, s) => n + s[1].length, 0);
+
+  let html = `<div class="admin-import-summary">Fichier lu : <strong>${plan.count}</strong> joueurs.</div>`;
+  if (plan.warnings && plan.warnings.length) {
+    const w = plan.warnings.slice(0, 30).map(t => `<li>${escapeHtml(t)}</li>`).join("");
+    html += `<details class="admin-import-section" open><summary>🛠️ Corrections automatiques <strong>(${plan.warnings.length})</strong></summary><ul>${w}</ul></details>`;
+  }
+  if (total === 0) {
+    html += `<p class="admin-note">Aucune différence : la base du jeu est déjà identique à ce fichier.</p>
+             <button id="admin-import-cancel-btn" class="admin-btn admin-btn-secondary">Fermer</button>`;
+  } else {
+    if (L.removed.length > 10) {
+      html += `<p class="admin-import-warning">⚠️ ${L.removed.length} joueurs vont être supprimés. Vérifie que ce fichier est bien la version la plus récente.</p>`;
+    }
+    sections.forEach(([title, items]) => {
+      if (!items.length) return;
+      const shown = items.slice(0, 30).map(t => `<li>${escapeHtml(t)}</li>`).join("");
+      const more = items.length > 30 ? `<li>… et ${items.length - 30} autres</li>` : "";
+      html += `<details class="admin-import-section"><summary>${title} <strong>(${items.length})</strong></summary><ul>${shown}${more}</ul></details>`;
+    });
+    html += `<p class="admin-note">Les modifications remplaceront les ajouts, suppressions, changements et notes enregistrés jusqu'ici dans la base partagée. Une copie de sécurité de l'état actuel est conservée.</p>
+             <div class="admin-import-actions">
+               <button id="admin-import-apply-btn" class="admin-btn">✅ Appliquer pour tous</button>
+               <button id="admin-import-cancel-btn" class="admin-btn admin-btn-secondary">Annuler</button>
+             </div>`;
+  }
+  box.innerHTML = html;
+  box.classList.remove("hidden");
+
+  const cancel = document.getElementById("admin-import-cancel-btn");
+  if (cancel) cancel.onclick = resetDataImport;
+  const apply = document.getElementById("admin-import-apply-btn");
+  if (apply) apply.onclick = () => applyDataImport(plan);
+}
+
+function resetDataImport() {
+  pendingDataImport = null;
+  const box = document.getElementById("admin-import-preview");
+  if (box) { box.innerHTML = ""; box.classList.add("hidden"); }
+  const input = document.getElementById("admin-import-file");
+  if (input) input.value = "";
+}
+
+async function applyDataImport(plan) {
+  const st = document.getElementById("admin-import-status");
+  const apply = document.getElementById("admin-import-apply-btn");
+  if (apply) apply.disabled = true;
+  st.textContent = "Import en cours...";
+  try {
+    const ref = db.collection("playersOverrides").doc("data");
+    const previous = await ref.get();
+    if (previous.exists) {
+      // Copie de sécurité de l'état d'avant import
+      await db.collection("playersOverrides").doc("backup").set({
+        ...previous.data(),
+        backedUpAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    const o = JSON.parse(JSON.stringify(plan.overrides)); // retire les valeurs « undefined »
+    await ref.set({
+      added: o.added, removed: o.removed, edited: o.edited, notes: o.notes, stats: o.stats,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: "ChocoDeLaVega"
+    });
+    const L = plan.preview;
+    try {
+      await logAdminAction("import", `data.js importé : +${L.added.length} / -${L.removed.length} joueurs, ${L.transfers.length} clubs, ${L.edits.length} modifs, ${L.notes.length} notes, ${L.stats.length} sous-notes`);
+    } catch (_) {}
+    st.innerHTML = `✓ Import appliqué pour tous les joueurs (visible à leur prochaine connexion). <button id="admin-import-reload-btn" class="admin-btn">🔄 Recharger la page</button>`;
+    document.getElementById("admin-import-reload-btn").onclick = () => location.reload();
+    resetDataImport();
+  } catch (e) {
+    st.textContent = `❌ Erreur : ${e.message}`;
+    if (apply) apply.disabled = false;
+  }
+}
+
+function bindDataImport() {
+  const input = document.getElementById("admin-import-file");
+  const st = document.getElementById("admin-import-status");
+  if (!input) return;
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    st.textContent = "Lecture du fichier...";
+    const box = document.getElementById("admin-import-preview");
+    box.classList.add("hidden");
+    try {
+      const plan = planDataImport(await file.text());
+      if (plan.errors.length) {
+        const list = plan.errors.slice(0, 20).map(e => `<li>${escapeHtml(e)}</li>`).join("");
+        const more = plan.errors.length > 20 ? `<li>… et ${plan.errors.length - 20} autres erreurs</li>` : "";
+        box.innerHTML = `<p class="admin-import-warning">❌ Import impossible : le fichier contient des erreurs. Rien n'a été modifié.</p><ul>${list}${more}</ul>`;
+        box.classList.remove("hidden");
+        st.textContent = "";
+        return;
+      }
+      pendingDataImport = plan;
+      st.textContent = "";
+      renderImportPreview(plan);
+    } catch (e) {
+      st.textContent = `❌ Fichier illisible : ${e.message}`;
+    }
+  };
+}
+
+// ---------------------------------------------------------
 // EXPORT data.js — génère le fichier complet à jour
 // ---------------------------------------------------------
 function generateDataJsFile() {
@@ -3809,13 +4899,15 @@ function generateDataJsFile() {
     parts.push(`rarity: ${JSON.stringify(p.rarity)}`);
     parts.push(`nat: ${JSON.stringify(p.nat || "FRA")}`);
     const key = `${p.name}|${p.team}`;
-    // Sous-stats personnalisées si elles existent
-    if (statsOverrides[key]) {
-      parts.push(`stats: ${JSON.stringify(statsOverrides[key])}`);
+    // Sous-notes : modification admin en priorité, sinon celles déjà présentes dans data.js
+    const exportStats = statsOverrides[key] || p.stats;
+    if (exportStats) {
+      parts.push(`stats: ${JSON.stringify(exportStats)}`);
     }
-    // Note générale forcée si elle existe
-    if (noteOverrides[key] !== undefined) {
-      parts.push(`note: ${noteOverrides[key]}`);
+    // Note générale forcée : modification admin en priorité, sinon celle de data.js
+    const exportNote = noteOverrides[key] !== undefined ? noteOverrides[key] : p.note;
+    if (exportNote !== undefined) {
+      parts.push(`note: ${exportNote}`);
     }
     return `  { ${parts.join(", ")} },`;
   }

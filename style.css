@@ -623,7 +623,8 @@ html, body {
 #rarity-filter-select,
 #album-rarity-filter-select,
 #note-order-select,
-#album-note-order-select {
+#album-note-order-select,
+#match-opponent-select {
   padding: 0.45rem 0.8rem;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.15);
@@ -653,7 +654,8 @@ html, body {
 #rarity-filter-select:hover,
 #album-rarity-filter-select:hover,
 #note-order-select:hover,
-#album-note-order-select:hover {
+#album-note-order-select:hover,
+#match-opponent-select:hover {
   border-color: var(--gold);
   background-color: rgba(255,255,255,0.1);
 }
@@ -669,7 +671,8 @@ html, body {
 #rarity-filter-select:focus,
 #album-rarity-filter-select:focus,
 #note-order-select:focus,
-#album-note-order-select:focus {
+#album-note-order-select:focus,
+#match-opponent-select:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(255,209,0,0.25);
@@ -687,7 +690,8 @@ html, body {
 #rarity-filter-select option,
 #album-rarity-filter-select option,
 #note-order-select option,
-#album-note-order-select option {
+#album-note-order-select option,
+#match-opponent-select option {
   background: #1a1c2e;
   color: #fff;
 }
@@ -3635,4 +3639,69 @@ textarea.contact-input {
     max-width: 100%;
     width: 100%;
   }
+}
+
+/* Effectif réduit (cartons) affiché à côté du nom de l'équipe dans le score */
+.match-live-field {
+  color: #ff6b6b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ===== IMPORT data.js (panneau Admin) ===== */
+.admin-import-preview {
+  margin-top: 0.8rem;
+  padding: 0.9rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+.admin-import-preview.hidden { display: none; }
+.admin-import-summary { font-size: 0.85rem; margin-bottom: 0.6rem; }
+.admin-import-warning {
+  color: #ff9d8a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0.4rem 0;
+}
+.admin-import-section { margin: 0.4rem 0; font-size: 0.82rem; }
+.admin-import-section summary { cursor: pointer; padding: 0.25rem 0; }
+.admin-import-section ul {
+  margin: 0.3rem 0 0.3rem 1.1rem;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  color: rgba(255,255,255,0.75);
+}
+.admin-import-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.admin-btn-secondary { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+
+/* ===== CHOIX DE L'ADVERSAIRE (Match) ===== */
+.match-opponent-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.match-opponent-row label { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); }
+.match-opponent-row select:disabled, .match-opponent-row .banc-btn:disabled { opacity: 0.5; cursor: default; }
+.match-history-opp { font-size: 0.7rem; font-weight: 400; color: rgba(255,255,255,0.45); }
+
+/* ===== PACK CLUB (club du jour) ===== */
+.pack-card-club {
+  border-top: 5px solid var(--club-color, #d4af37);
+}
+.pack-club-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+  color: var(--card-text, #1a1a2e);
+  background: rgba(0,0,0,0.06);
+  border-left: 5px solid var(--club-color, #d4af37);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  margin: 0.2rem 0 0.5rem;
+  text-align: center;
 }
