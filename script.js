@@ -360,6 +360,11 @@ async function loadPlayersOverrides() {
       console.log(`✓ ${Object.keys(data.stats).length} joueur(s) avec sous-stats personnalisées chargées`);
     }
 
+    // Photos des joueurs
+    if (data.photos && typeof data.photos === "object") {
+      photoOverrides = { ...data.photos };
+    }
+
     // Appliquer les modifications de joueurs existants (club, rareté, postes)
     // IMPORTANT : si le club change, la clé "nom|club" change aussi — il faut migrer
     // les notes et sous-stats personnalisées vers la nouvelle clé, sinon elles
@@ -1912,9 +1917,51 @@ function getNatLabel(natCode) {
 // ---------------------------------------------------------
 // CRÉATION D'UN ÉLÉMENT "CARTE"
 // ---------------------------------------------------------
+// ---------------------------------------------------------
+// PHOTOS ET RAPPEL DU CLUB SUR LES CARTES
+// ---------------------------------------------------------
+// Photos des joueurs : { "nom|club": url }. Source : panneau Admin (à venir) ou champ « photo » dans data.js.
+// Sans photo, la carte affiche les initiales du joueur sur le fond de sa rareté.
+let photoOverrides = {};
+
+function getPlayerPhoto(player) {
+  return photoOverrides[getCardKey(player)] || player.photo || null;
+}
+
+function photoImgHtml(player, cls) {
+  const url = getPlayerPhoto(player);
+  if (!url) return "";
+  const safe = String(url).replace(/"/g, "&quot;");
+  // si l'image ne charge pas, on retombe sur les initiales
+  return `<img class="${cls}" src="${safe}" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.remove('has-photo');this.remove()">`;
+}
+
+const CLUB_SHORT_NAMES = {
+  toulouse: "Toulouse", ubb: "UBB", racing92: "Racing 92", lapelle: "La Rochelle", toulon: "Toulon",
+  clermont: "Clermont", bayonne: "Bayonne", pau: "Pau", lyon: "Lyon", castres: "Castres",
+  montpellier: "Montpellier", stadefr: "Stade Français", perpignan: "Perpignan", montauban: "Montauban",
+  biarritz: "Biarritz", vannes: "Vannes", bourgoinjallieu: "Bourgoin"
+};
+
+// Club(s) du joueur : un seul pour la plupart, plusieurs pour les légendes (clubs de carrière)
+function getPlayerClubKeys(player) {
+  return player.clubs && player.clubs.length > 1 ? player.clubs : [player.team];
+}
+
+// Petit rappel du ou des clubs : pastille aux couleurs du club + nom court
+function clubChipsHtml(player, max = 3) {
+  const keys = getPlayerClubKeys(player);
+  const chips = keys.slice(0, max).map(k => {
+    const t = TEAMS[k];
+    return `<span class="club-chip" title="${t ? t.name : k}" style="--chip:${t ? t.color : "#888"}"><i></i>${CLUB_SHORT_NAMES[k] || (t ? t.name : k)}</span>`;
+  }).join("");
+  const more = keys.length > max ? `<span class="club-chip club-chip-more">+${keys.length - max}</span>` : "";
+  return `<div class="card-clubs">${chips}${more}</div>`;
+}
+
 function buildCardElement(player, count = null, options = {}) {
   const card = document.createElement("div");
-  card.className = `card ${player.rarity}`;
+  card.className = `card card-v2 ${player.rarity}`;
 
   const team = TEAMS[player.team];
   const initials = player.name
@@ -1924,18 +1971,10 @@ function buildCardElement(player, count = null, options = {}) {
     .slice(0, 2)
     .toUpperCase();
 
-  const customTeams = ["toulouse", "montpellier", "racing92", "lapelle", "clermont", "ubb", "bayonne", "perpignan", "montauban"];
-  // Les légendes gardent la couleur de leur club sur l'avatar (liseré doré géré par .card.legendaire)
-  const isCustom = customTeams.includes(player.team);
-  const avatarClass = isCustom ? `avatar-${player.team}` : "";
-  const avatarStyle = isCustom ? "" : `style="background:${team?.color || '#333'}"`;
+  const photoHtml = photoImgHtml(player, "card-photo");
 
   const positionText = (player.positions || []).join(" / ");
   const natCode = (player.nat || "FRA").toUpperCase().trim();
-
-  const clubsText = player.clubs && player.clubs.length > 1
-    ? player.clubs.map(c => TEAMS[c]?.name || c).join(" / ")
-    : (team?.name || player.team || "?");
 
   const isLocked = (options.lockedCount || 0) > 0;
   const note = getPlayerNote(player);
@@ -1953,15 +1992,16 @@ function buildCardElement(player, count = null, options = {}) {
   `;
 
   card.innerHTML = `
-    <div class="card-avatar ${avatarClass}" ${avatarStyle}>
+    <div class="card-avatar${photoHtml ? " has-photo" : ""}">
+      ${photoHtml}
       <span class="avatar-initials">${initials}</span>
       <span class="card-note" style="background:${noteColor}">${note}</span>
       ${isLocked ? `<span class="card-lock-badge" title="Non revendable">🔒</span>` : ""}
     </div>
     <div class="card-info">
       <p class="card-name">${player.name}</p>
-      <p class="card-team">${clubsText}</p>
       <p class="card-position">${positionText}</p>
+      ${clubChipsHtml(player)}
       <span class="card-rarity ${player.rarity}">${RARITIES[player.rarity]?.label || "?"}</span>
       ${count !== null ? `<div class="card-count">x${count}</div>` : ""}
       <p class="card-nationality"><span class="nat-flag">${getFlagEmoji(natCode)}</span><span class="nat-code">${getNatLabel(natCode)}</span></p>
@@ -2423,32 +2463,27 @@ function updateEquipePreview(player) {
 }
 
 function buildMiniCard(player, slot) {
-  const team = TEAMS[player.team];
   const posText = (player.positions || []).join(" / ");
-  const rarityClass = player.rarity;
-
-  // Couleur de fond du mini-header — les légendes gardent la couleur du club
-  let bgStyle = "";
-  const customTeams = ["toulouse","montpellier","racing92","lapelle","clermont","ubb","bayonne","perpignan","montauban"];
-  if (customTeams.includes(player.team)) {
-    bgStyle = ""; // handled by CSS class
-  } else {
-    bgStyle = `background: ${team?.color || '#333'};`;
-  }
-  const avatarClass = customTeams.includes(player.team) ? `avatar-${player.team}` : "";
-
   const note = getPlayerNote(player);
   const noteColor = getNoteColor(note);
+  const photoHtml = photoImgHtml(player, "mini-photo");
+
+  // Rappel du club : pastille à ses couleurs + nom court (plusieurs pastilles pour une légende multi-clubs)
+  const clubKeys = getPlayerClubKeys(player);
+  const clubLabel = clubKeys.slice(0, 2).map(k => CLUB_SHORT_NAMES[k] || (TEAMS[k] ? TEAMS[k].name : k)).join(" / ");
+  const firstTeam = TEAMS[clubKeys[0]];
 
   return `
-    <div class="mini-card ${rarityClass}">
-      <div class="mini-card-header ${avatarClass}" style="${bgStyle}">
+    <div class="mini-card mini-v2 ${player.rarity}">
+      <div class="mini-card-header${photoHtml ? " has-photo" : ""}">
+        ${photoHtml}
+        <span class="mini-initials">${player.name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase()}</span>
         <span class="mini-num">${slot.num}</span>
         <span class="mini-note" style="background:${noteColor}">${note}</span>
       </div>
       <div class="mini-card-body">
         <div class="mini-name">${player.name}</div>
-        <div class="mini-team">${team?.name || player.team || "?"}</div>
+        <div class="mini-team"><i class="mini-dot" style="--chip:${firstTeam ? firstTeam.color : "#888"}"></i>${clubLabel}</div>
         <div class="mini-pos">${posText}</div>
       </div>
     </div>

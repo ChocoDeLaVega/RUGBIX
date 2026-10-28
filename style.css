@@ -3120,18 +3120,6 @@ textarea.contact-input {
   padding: 0.4rem 0.6rem;
 }
 
-/* Force gold medallion on ALL legend cards, overriding any club color class */
-.card.legendaire [class*="avatar-"],
-.card.legendaire .card-avatar {
-  background: radial-gradient(circle at 50% 35%, #fff7d6 0%, #d4af37 35%, #9a9a9a 65%, #c0c0c0 85%, #707070 100%) !important;
-  border-bottom: 3px solid #d4af37 !important;
-}
-
-/* Force gold on ALL legend mini-cards in Mon Equipe */
-.mini-card.legendaire [class*="avatar-"],
-.mini-card.legendaire .mini-card-header {
-  background: radial-gradient(circle at 50% 50%, #fff7d6 0%, #d4af37 50%, #9a9a9a 100%) !important;
-}
 
 /* ===== SOUS-STATS ADMIN (Notes / Ajout joueur) ===== */
 .admin-stats-grid {
@@ -3704,4 +3692,262 @@ textarea.contact-input {
   padding: 0.2rem 0.6rem;
   margin: 0.2rem 0 0.5rem;
   text-align: center;
+}
+
+/* =========================================================
+   CARTES JOUEURS v2
+   Un thème par rareté (cadre, fond, zone photo) : toutes les cartes d'une même rareté
+   ont le même design, seule la photo change. Le club est rappelé par de petites pastilles.
+   ========================================================= */
+.card.card-v2, .mini-card.mini-v2 {
+  --r-main: #9aa3ad; --r-light: #d5dbe2; --r-dark: #2b303a;
+  --r-photo-a: #5d6773; --r-photo-b: #272c35; --r-glow: rgba(154,163,173,0.22);
+}
+.card.card-v2.rare, .mini-card.mini-v2.rare {
+  --r-main: #05DF72; --r-light: #a6ffd0; --r-dark: #0c3a27;
+  --r-photo-a: #13875d; --r-photo-b: #0a3023; --r-glow: rgba(5,223,114,0.35);
+}
+.card.card-v2.epique, .mini-card.mini-v2.epique {
+  --r-main: #c25cff; --r-light: #efcbff; --r-dark: #2d0f46;
+  --r-photo-a: #7d31b3; --r-photo-b: #25103a; --r-glow: rgba(194,92,255,0.45);
+}
+.card.card-v2.international, .mini-card.mini-v2.international {
+  --r-main: #55a8ff; --r-light: #d3e9ff; --r-dark: #0e2750;
+  --r-photo-a: #2b66bd; --r-photo-b: #0a1d3d; --r-glow: rgba(85,168,255,0.5);
+}
+.card.card-v2.legendaire, .mini-card.mini-v2.legendaire {
+  --r-main: #ffd24a; --r-light: #fff2b8; --r-dark: #3b2a06;
+  --r-photo-a: #bd8f1f; --r-photo-b: #2b1e03; --r-glow: rgba(255,210,74,0.7);
+}
+
+.card.card-v2 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(170deg, var(--r-dark) 0%, #0d0f16 100%);
+  border: 2px solid var(--r-main);
+  border-radius: 12px;
+  box-shadow: 0 0 12px var(--r-glow), inset 0 0 0 1px rgba(255,255,255,0.06);
+  overflow: hidden;
+  color: #f2f4f8;
+}
+.card.card-v2.legendaire {
+  border-width: 3px;
+  box-shadow: 0 0 20px var(--r-glow), inset 0 0 0 1px rgba(255,236,150,0.55);
+}
+/* reflet : de plus en plus marqué avec la rareté */
+.card.card-v2.epique::before, .card.card-v2.international::before, .card.card-v2.legendaire::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.13) 50%, transparent 62%);
+}
+.card.card-v2.international::before { background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,0.17) 50%, transparent 64%); }
+.card.card-v2.legendaire::before { background: linear-gradient(115deg, transparent 32%, rgba(255,246,200,0.26) 50%, transparent 68%); }
+
+/* Zone photo */
+.card.card-v2 .card-avatar {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1.08;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 28%, var(--r-photo-a) 0%, var(--r-photo-b) 82%);
+  border-bottom: 2px solid var(--r-main);
+  overflow: hidden;
+  color: var(--r-light);
+  font-family: 'Bebas Neue', 'Montserrat', sans-serif;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.card.card-v2 .card-avatar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 36%;
+  background: linear-gradient(to top, rgba(8,10,16,0.72), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+.card.card-v2 .avatar-initials { font-size: 3rem; letter-spacing: 0.02em; opacity: 0.88; z-index: 0; }
+.card.card-v2 .card-avatar.has-photo .avatar-initials { display: none; }
+.card.card-v2 .card-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 16%;
+  z-index: 0;
+}
+.card.card-v2 .card-note, .card.card-v2 .card-lock-badge { z-index: 3; }
+
+/* Informations */
+.card.card-v2 .card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.42rem 0.35rem 0.5rem;
+  background: transparent;
+  text-align: center;
+}
+.card.card-v2 .card-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.3em;
+  height: auto;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+}
+.card.card-v2 .card-position {
+  height: auto;
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--r-light);
+}
+.card.card-v2 .card-clubs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem;
+  margin: 0.18rem 0 0.1rem;
+}
+.card.card-v2 .card-rarity {
+  height: auto;
+  margin: 0.2rem 0 0;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  background: var(--r-main);
+  color: #10131a;
+}
+.card.card-v2 .card-count { height: auto; margin: 0.1rem 0 0; font-size: 0.7rem; font-weight: 700; color: rgba(255,255,255,0.75); }
+.card.card-v2 .card-nationality { height: auto; margin: 0.15rem 0 0; color: rgba(255,255,255,0.82); }
+.card.card-v2 .card-substats { border-top-color: rgba(255,255,255,0.16); }
+.card.card-v2 .substat-label { color: var(--r-light); opacity: 0.85; }
+.card.card-v2 .substat-value { color: #fff; }
+
+/* Rappel du club : pastille aux couleurs du club + nom court */
+.club-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.16rem 0.42rem 0.16rem 0.3rem;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: #eef1f8;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 999px;
+}
+.club-chip i {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--chip, #888);
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.6);
+}
+.club-chip-more { padding: 0.16rem 0.38rem; }
+
+/* Carte agrandie */
+.zoomed-card.card-v2 { width: 230px; }
+.zoomed-card.card-v2 .avatar-initials { font-size: 4.4rem; }
+.zoomed-card.card-v2 .card-name { font-size: 0.98rem; }
+.zoomed-card.card-v2 .card-position { font-size: 0.7rem; }
+.zoomed-card.card-v2 .club-chip { font-size: 0.64rem; }
+.zoomed-card.card-v2 .card-rarity { font-size: 0.64rem; }
+
+/* Miniatures (terrain de Mon Équipe, compositions du Match) */
+.mini-card.mini-v2 {
+  background: linear-gradient(170deg, var(--r-dark) 0%, #0d0f16 100%);
+  border: 2px solid var(--r-main);
+  border-radius: 8px;
+  box-shadow: 0 0 8px var(--r-glow);
+}
+.mini-card.mini-v2 .mini-card-header {
+  position: relative;
+  height: 38px;
+  background: radial-gradient(ellipse at 50% 30%, var(--r-photo-a) 0%, var(--r-photo-b) 85%);
+  border-bottom: 1.5px solid var(--r-main);
+  overflow: hidden;
+}
+.mini-card.mini-v2 .mini-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 16%;
+}
+.mini-card.mini-v2 .mini-initials {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', 'Montserrat', sans-serif;
+  font-size: 1.3rem;
+  color: var(--r-light);
+  opacity: 0.85;
+}
+.mini-card.mini-v2 .mini-card-header.has-photo .mini-initials { display: none; }
+.mini-card.mini-v2 .mini-num, .mini-card.mini-v2 .mini-note { z-index: 2; }
+.mini-card.mini-v2 .mini-card-body { background: transparent; padding: 0.22rem 0.25rem 0.26rem; }
+.mini-card.mini-v2 .mini-name { color: #fff; font-weight: 800; }
+.mini-card.mini-v2 .mini-team {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: rgba(255,255,255,0.82);
+}
+.mini-dot {
+  width: 0.38rem;
+  height: 0.38rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--chip, #888);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.6);
+}
+.mini-card.mini-v2 .mini-pos { color: var(--r-light); }
+
+@media (max-width: 768px) {
+  .card.card-v2 .card-name { font-size: 0.68rem; }
+  .card.card-v2 .card-position { font-size: 0.54rem; }
+  .card.card-v2 .club-chip { font-size: 0.5rem; padding: 0.14rem 0.34rem 0.14rem 0.26rem; }
+  .card.card-v2 .avatar-initials { font-size: 2.2rem; }
+  .card.card-v2 .card-rarity { font-size: 0.5rem; }
+  .zoomed-card.card-v2 { width: 210px; }
+  .zoomed-card.card-v2 .card-name { font-size: 0.92rem; }
+  .zoomed-card.card-v2 .club-chip { font-size: 0.6rem; }
+  .zoomed-card.card-v2 .avatar-initials { font-size: 4rem; }
+}
+
+/* Initiales : retire l'ancien médaillon des légendes */
+.card.card-v2 .avatar-initials {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
