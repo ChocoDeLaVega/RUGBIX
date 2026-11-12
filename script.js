@@ -1924,8 +1924,19 @@ function getNatLabel(natCode) {
 // Sans photo, la carte affiche les initiales du joueur sur le fond de sa rareté.
 let photoOverrides = {};
 
+// Clé d'une photo : nom du joueur sans accents ni ponctuation, en minuscules (ex. « Ainu'u » -> « ainu u »)
+function photoKey(name) {
+  return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// Ordre de priorité : photo envoyée depuis l'Admin, champ « photo » de data.js, puis dossier photos/ (liste dans photos.js).
+// La photo suit le joueur, même s'il change de club.
 function getPlayerPhoto(player) {
-  return photoOverrides[getCardKey(player)] || player.photo || null;
+  const key = getCardKey(player);
+  if (photoOverrides[key]) return photoOverrides[key];
+  if (player.photo) return player.photo;
+  if (typeof PLAYER_PHOTOS !== "undefined") return PLAYER_PHOTOS[photoKey(player.name)] || null;
+  return null;
 }
 
 function photoImgHtml(player, cls) {
@@ -2466,8 +2477,6 @@ function buildMiniCard(player, slot) {
   const posText = (player.positions || []).join(" / ");
   const note = getPlayerNote(player);
   const noteColor = getNoteColor(note);
-  const photoHtml = photoImgHtml(player, "mini-photo");
-
   // Rappel du club : pastille à ses couleurs + nom court (plusieurs pastilles pour une légende multi-clubs)
   const clubKeys = getPlayerClubKeys(player);
   const clubLabel = clubKeys.slice(0, 2).map(k => CLUB_SHORT_NAMES[k] || (TEAMS[k] ? TEAMS[k].name : k)).join(" / ");
@@ -2475,9 +2484,7 @@ function buildMiniCard(player, slot) {
 
   return `
     <div class="mini-card mini-v2 ${player.rarity}">
-      <div class="mini-card-header${photoHtml ? " has-photo" : ""}">
-        ${photoHtml}
-        <span class="mini-initials">${player.name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase()}</span>
+      <div class="mini-card-header">
         <span class="mini-num">${slot.num}</span>
         <span class="mini-note" style="background:${noteColor}">${note}</span>
       </div>

@@ -1,0 +1,30 @@
+// Photos des joueurs — fichier généré automatiquement (ne pas modifier à la main).
+// Clé : nom du joueur sans accents, en minuscules. Valeur : chemin de la photo.
+const PLAYER_PHOTOS = {
+ "alexandre roumat": "photos/alexandre-roumat.webp?v=e635d4",
+ "anthony jelonch": "photos/anthony-jelonch.webp?v=c9660f",
+ "benjamin bertrand": "photos/benjamin-bertrand.webp?v=fc4064",
+ "clement verge": "photos/clement-verge.webp?v=d567d9",
+ "cyril baille": "photos/cyril-baille.webp?v=027fc0",
+ "david ainu u": "photos/david-ainu-u.webp?v=824814",
+ "dorian aldegheri": "photos/dorian-aldegheri.webp?v=9f1360",
+ "elias efrain": "photos/elias-efrain.webp?v=840fee",
+ "emmanuel meafou": "photos/emmanuel-meafou.webp?v=1e38f3",
+ "francois cros": "photos/francois-cros.webp?v=e14526",
+ "georges henri colombe": "photos/georges-henri-colombe.webp?v=eee946",
+ "jack willis": "photos/jack-willis.webp?v=b0d929",
+ "joel merkler": "photos/joel-merkler.webp?v=45fc78",
+ "joshua brennan": "photos/joshua-brennan.webp?v=2a85ba",
+ "julien marchand": "photos/julien-marchand.webp?v=a144ba",
+ "leo banos": "photos/leo-banos.webp?v=4049c3",
+ "malachi hawkes": "photos/malachi-hawkes.webp?v=f26953",
+ "mathis castro ferreira": "photos/mathis-castro-ferreira.webp?v=bb18ec",
+ "paul mallez": "photos/paul-mallez.webp?v=460638",
+ "peato mauvaka": "photos/peato-mauvaka.webp?v=56eafe",
+ "rodrigue neti": "photos/rodrigue-neti.webp?v=42b3b1",
+ "romeo bonnard martin": "photos/romeo-bonnard-martin.webp?v=2dee97",
+ "theo ntamack": "photos/theo-ntamack.webp?v=9da99a",
+ "thibaud flament": "photos/thibaud-flament.webp?v=0ac040",
+ "thomas lacombre": "photos/thomas-lacombre.webp?v=86e841",
+ "tom rapetti": "photos/tom-rapetti.webp?v=c2c639"
+};
