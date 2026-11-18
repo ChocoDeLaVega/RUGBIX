@@ -3931,3 +3931,7 @@ textarea.contact-input {
   border-radius: 0;
   box-shadow: none;
 }
+
+/* Photo entière : pas de dégradé sombre par-dessus, l'image est déjà au format de la zone photo */
+.card.card-v2 .card-avatar.has-photo::after { display: none; }
+.card.card-v2 .card-photo { object-fit: cover; object-position: center; }
