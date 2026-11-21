@@ -41,6 +41,58 @@ function markDailyUsed() {
 }
 
 let collection = {};
+
+// ---------------------------------------------------------
+// RENOMMAGES : quand l'admin corrige le nom (ou change le club) d'un joueur, son identifiant « nom|club » change.
+// { ancienneClé: nouvelleClé } permet aux cartes déjà possédées de suivre le joueur.
+// ---------------------------------------------------------
+let keyRenames = {};
+let renameSources = {};   // nouvelleClé -> anciens noms (sert à retrouver la photo rangée sous l'ancien nom)
+
+function resolveKey(key) {
+  let k = key, n = 0;
+  while (keyRenames[k] && n++ < 10) k = keyRenames[k];
+  return k;
+}
+
+function rebuildRenameSources() {
+  renameSources = {};
+  Object.keys(keyRenames).forEach(old => {
+    const final = resolveKey(old);
+    (renameSources[final] = renameSources[final] || []).push(old.split("|")[0]);
+  });
+}
+
+function registerKeyRename(oldKey, newKey) {
+  if (oldKey === newKey) return;
+  keyRenames[oldKey] = newKey;
+  Object.keys(keyRenames).forEach(k => { if (keyRenames[k] === oldKey) keyRenames[k] = newKey; });
+  rebuildRenameSources();
+}
+
+// Déplace les cartes possédées sous une ancienne clé vers la nouvelle. L'ancienne entrée est remise à zéro
+// (et non supprimée) : l'opération reste ainsi sans effet si elle est rejouée.
+function migrateKeys(coll) {
+  let changed = false;
+  Object.keys(coll).forEach(oldKey => {
+    const nk = resolveKey(oldKey);
+    if (nk === oldKey) return;
+    const a = coll[oldKey];
+    if (!a || !((a.count || 0) || (a.lockedCount || 0))) return;
+    const b = coll[nk];
+    if (!b) {
+      coll[nk] = { ...a };
+    } else {
+      b.count = (b.count || 0) + (a.count || 0);
+      b.lockedCount = (b.lockedCount || 0) + (a.lockedCount || 0);
+      const t = Math.max(a.obtainedAt || 0, b.obtainedAt || 0);
+      if (t) b.obtainedAt = t;
+    }
+    coll[oldKey] = { count: 0, lockedCount: 0 };
+    changed = true;
+  });
+  return changed;
+}
 let coins = 0;
 let currentUser = null;
 let saveTimeout = null;
@@ -69,8 +121,8 @@ firebase.auth().onAuthStateChanged(async user => {
       document.getElementById("admin-nav-btn").classList.remove("hidden");
     }
 
-    await loadProgressFromFirebase();
-    await loadPlayersOverrides();
+    await loadPlayersOverrides();      // d'abord la base : noms, clubs et renommages
+    await loadProgressFromFirebase();  // puis la progression, dont les cartes suivent un joueur renommé
 
     try {
       await db.collection("users").doc(currentUser.uid).set(
@@ -171,6 +223,7 @@ function setupProgressSync() {
 
       const data = doc.data();
       collection = data.collection || {};
+      if (migrateKeys(collection)) saveData();
       coins = data.coins !== undefined ? data.coins : coins;
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
@@ -180,7 +233,8 @@ function setupProgressSync() {
       if (data.equipe) {
         equipe = {};
         for (const [slotId, key] of Object.entries(data.equipe)) {
-          const player = PLAYERS.find(p => getCardKey(p) === key);
+          const rk = resolveKey(key);
+          const player = PLAYERS.find(p => getCardKey(p) === rk);
           if (player) equipe[slotId] = player;
         }
       } else {
@@ -208,6 +262,7 @@ async function loadProgressFromFirebase() {
     if (doc.exists) {
       const data = doc.data();
       collection = data.collection || {};
+      const keysMoved = migrateKeys(collection);
       coins = data.coins !== undefined ? data.coins : 200;
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
@@ -217,10 +272,12 @@ async function loadProgressFromFirebase() {
       if (data.equipe) {
         equipe = {};
         for (const [slotId, key] of Object.entries(data.equipe)) {
-          const player = PLAYERS.find(p => getCardKey(p) === key);
+          const rk = resolveKey(key);
+          const player = PLAYERS.find(p => getCardKey(p) === rk);
           if (player) equipe[slotId] = player;
         }
       }
+      if (keysMoved) saveData();
       // Historique des matchs (les 10 plus récents) et statistiques cumulées
       matchHistory = Array.isArray(data.matchHistory) ? data.matchHistory : [];
       matchStats = data.matchStats || { played: 0, wins: 0, draws: 0, losses: 0 };
@@ -365,6 +422,12 @@ async function loadPlayersOverrides() {
       photoOverrides = { ...data.photos };
     }
 
+    // Renommages enregistrés par l'admin (les anciennes modifications de club sont déduites plus bas)
+    keyRenames = {};
+    if (Array.isArray(data.renames)) {
+      data.renames.forEach(r => { if (r && r.from && r.to) keyRenames[r.from] = r.to; });
+    }
+
     // Appliquer les modifications de joueurs existants (club, rareté, postes)
     // IMPORTANT : si le club change, la clé "nom|club" change aussi — il faut migrer
     // les notes et sous-stats personnalisées vers la nouvelle clé, sinon elles
@@ -379,11 +442,13 @@ async function loadPlayersOverrides() {
           if (edit.rarity && RARITIES[edit.rarity]) PLAYERS[idx].rarity = edit.rarity;
           if (edit.positions) PLAYERS[idx].positions = edit.positions;
           if (edit.nat) PLAYERS[idx].nat = edit.nat;
+          if (edit.name) PLAYERS[idx].name = edit.name;
           if (edit.clubs !== undefined) {
             if (edit.clubs && edit.clubs.length) PLAYERS[idx].clubs = edit.clubs;
             else delete PLAYERS[idx].clubs;
           }
           const newKey = makeKey(PLAYERS[idx]);
+          if (newKey !== oldKey && !(oldKey in keyRenames)) keyRenames[oldKey] = newKey;   // le joueur a changé de nom ou de club
 
           // Migrer les overrides de l'ancienne clé vers la nouvelle si le club a changé
           if (newKey !== oldKey) {
@@ -400,6 +465,7 @@ async function loadPlayersOverrides() {
           }
         }
       });
+      rebuildRenameSources();
       console.log(`✓ ${data.edited.length} modification(s) appliquée(s)`);
 
       // Répercuter la migration des clés dans Firestore pour que ce soit permanent
@@ -608,12 +674,13 @@ async function applyGift(gift) {
     renderPacks();
 
   } else if (gift.type === "card") {
-    const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
+    const player = PLAYERS.find(p => getCardKey(p) === resolveKey(gift.cardKey));
     if (player) {
       addCardToCollection(player, false);
       // Toujours horodater la carte reçue en cadeau (même si doublon)
-      if (collection[gift.cardKey]) {
-        collection[gift.cardKey].obtainedAt = now;
+      const giftKey = resolveKey(gift.cardKey);
+      if (collection[giftKey]) {
+        collection[giftKey].obtainedAt = now;
       }
       saveData();
       renderCollection();
@@ -629,7 +696,8 @@ async function applyGift(gift) {
       ? gift.cards
       : Object.keys(collection).filter(k => !keysBefore.has(k));
 
-    cardKeys.forEach(cardKey => {
+    cardKeys.forEach(rawKey => {
+      const cardKey = resolveKey(rawKey);
       if (collection[cardKey]) {
         collection[cardKey].obtainedAt = now;
         changed = true;
@@ -657,7 +725,7 @@ function showGiftModal(gift) {
 
   } else if (gift.type === "card") {
     modalContent.style.width = "220px";
-    const player = PLAYERS.find(p => getCardKey(p) === gift.cardKey);
+    const player = PLAYERS.find(p => getCardKey(p) === resolveKey(gift.cardKey));
     if (player) {
       const cardEl = buildCardElement(player, null, {});
       cardEl.style.animation = "revealCard 0.4s ease forwards";
@@ -688,7 +756,7 @@ function showGiftModal(gift) {
       grid.style.gridTemplateColumns = `repeat(${cols}, ${CARD_W}px)`;
 
       cardKeys.forEach((cardKey, index) => {
-        const player = PLAYERS.find(p => getCardKey(p) === cardKey);
+        const player = PLAYERS.find(p => getCardKey(p) === resolveKey(cardKey));
         if (player) {
           const el = buildCardElement(player, null, {});
           el.style.animation = `revealCard 0.4s ease ${index * 0.08}s forwards`;
@@ -1935,7 +2003,15 @@ function getPlayerPhoto(player) {
   const key = getCardKey(player);
   if (photoOverrides[key]) return photoOverrides[key];
   if (player.photo) return player.photo;
-  if (typeof PLAYER_PHOTOS !== "undefined") return PLAYER_PHOTOS[photoKey(player.name)] || null;
+  if (typeof PLAYER_PHOTOS !== "undefined") {
+    const direct = PLAYER_PHOTOS[photoKey(player.name)];
+    if (direct) return direct;
+    // nom corrigé par l'admin : on retrouve la photo rangée sous l'ancien nom
+    for (const oldName of renameSources[key] || []) {
+      const p = PLAYER_PHOTOS[photoKey(oldName)];
+      if (p) return p;
+    }
+  }
   return null;
 }
 
@@ -3682,6 +3758,7 @@ async function renderAdmin() {
           <select id="edit-player-select" class="admin-select" size="8" style="height:200px"></select>
           <div id="edit-player-fields" class="hidden">
             <div class="admin-edit-sep">Modifier les champs :</div>
+            <input type="text" id="edit-player-name" class="admin-input" placeholder="Prénom et nom du joueur (pour corriger une faute d'orthographe)">
             <div class="admin-row">
               <select id="edit-player-team" class="admin-select">
                 ${Object.entries(TEAMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("")}
@@ -3870,6 +3947,14 @@ function refreshRemovePlayerList(q) {
   sel.innerHTML = filtered.map(p =>
     `<option value="${getCardKey(p)}">${p.name} — ${TEAMS[p.team]?.name||p.team} [${RARITIES[p.rarity]?.label||p.rarity}]</option>`
   ).join("");
+}
+
+// Applique un renommage dans l'état local de l'admin : cartes possédées, notes et sous-notes suivent le joueur
+function applyLocalRename(oldKey, newKey) {
+  registerKeyRename(oldKey, newKey);
+  if (noteOverrides[oldKey] !== undefined) { noteOverrides[newKey] = noteOverrides[oldKey]; delete noteOverrides[oldKey]; }
+  if (statsOverrides[oldKey] !== undefined) { statsOverrides[newKey] = statsOverrides[oldKey]; delete statsOverrides[oldKey]; }
+  if (migrateKeys(collection)) saveData();
 }
 
 function refreshEditPlayerList(q) {
@@ -4259,6 +4344,7 @@ function bindAdminEvents() {
     if (!player) return;
 
     // Pré-remplir les champs avec les valeurs actuelles
+    document.getElementById("edit-player-name").value = player.name;
     document.getElementById("edit-player-team").value = player.team;
     document.getElementById("edit-player-rarity").value = player.rarity;
     document.getElementById("edit-player-positions").value = (player.positions||[]).join("|");
@@ -4277,8 +4363,18 @@ function bindAdminEvents() {
     const newPositions = document.getElementById("edit-player-positions").value
       .split("|").map(p=>p.trim()).filter(Boolean);
     const newNat = document.getElementById("edit-player-nat").value;
+    const newName = document.getElementById("edit-player-name").value.replace(/\s+/g, " ").trim();
 
+    if (!newName) { st.textContent = "⚠️ Le nom du joueur ne peut pas être vide."; return; }
     if (!newPositions.length) { st.textContent = "⚠️ Entre au moins un poste."; return; }
+
+    const current = PLAYERS.find(p => getCardKey(p) === key);
+    const newKey = `${newName}|${newTeam}`;
+    if (newKey !== key && PLAYERS.some(p => p !== current && getCardKey(p) === newKey)) {
+      st.textContent = `⚠️ Un joueur « ${newName} » existe déjà dans ce club.`;
+      return;
+    }
+    const oldName = current ? current.name : key.split("|")[0];
 
     st.textContent = "Sauvegarde en cours...";
     try {
@@ -4291,27 +4387,47 @@ function bindAdminEvents() {
       // Stocker les modifications dans un champ "edited"
       const edited = existing.edited || [];
       const editIdx = edited.findIndex(e => e.key === key);
-      const editEntry = { key, team: newTeam, rarity: newRarity, positions: newPositions, nat: newNat };
+      const editEntry = { key, name: newName, team: newTeam, rarity: newRarity, positions: newPositions, nat: newNat };
       if (editIdx >= 0) edited[editIdx] = editEntry;
       else edited.push(editEntry);
 
+      // Renommage : on garde « ancienne clé -> nouvelle clé » pour que les cartes déjà possédées suivent le joueur
+      let renames = Array.isArray(existing.renames) ? existing.renames.filter(r => r && r.from !== key) : [];
+      if (newKey !== key) {
+        renames.forEach(r => { if (r.to === key) r.to = newKey; });
+        renames.push({ from: key, to: newKey });
+      }
+
       await db.collection("playersOverrides").doc("data").set(
-        { added, removed, edited, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: "ChocoDeLaVega" },
+        { added, removed, edited, renames, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: "ChocoDeLaVega" },
         { merge: true }
       );
 
       // Appliquer localement immédiatement
       const idx = PLAYERS.findIndex(p => `${p.name}|${p.team}` === key);
       if (idx >= 0) {
+        PLAYERS[idx].name = newName;
         PLAYERS[idx].team = newTeam;
         PLAYERS[idx].rarity = newRarity;
         PLAYERS[idx].positions = newPositions;
         PLAYERS[idx].nat = newNat;
       }
+      if (newKey !== key) applyLocalRename(key, newKey);
 
-      const playerName = key.split("|")[0];
-      st.textContent = `✓ ${playerName} modifié pour tous !`;
-      try { await logAdminAction("joueur_modifié", `${playerName} → club:${TEAMS[newTeam]?.name||newTeam}, rareté:${newRarity}, nat:${newNat}`); } catch(_) {}
+      // Rafraîchit les listes du panneau Admin (le nom a pu changer) et garde le joueur sélectionné
+      const searchEl = document.getElementById("edit-player-search");
+      if (searchEl && newKey !== key) searchEl.value = newName;   // pour retrouver le joueur renommé dans la liste
+      refreshEditPlayerList(searchEl?.value || "");
+      const sel = document.getElementById("edit-player-select");
+      if (sel && [...sel.options].some(o => o.value === newKey)) {
+        sel.value = newKey;
+        sel.dispatchEvent(new Event("change"));
+      }
+      refreshRemovePlayerList(document.getElementById("remove-player-search")?.value || "");
+
+      const renamed = newKey !== key && oldName !== newName;
+      st.textContent = renamed ? `✓ ${oldName} renommé « ${newName} » pour tous (les cartes déjà possédées suivent le joueur) !` : `✓ ${newName} modifié pour tous !`;
+      try { await logAdminAction("joueur_modifié", `${renamed ? oldName + " → " + newName + ", " : newName + " → "}club:${TEAMS[newTeam]?.name||newTeam}, rareté:${newRarity}, nat:${newNat}`); } catch(_) {}
     } catch(e) {
       st.textContent = `❌ Erreur : ${e.message}`;
     }
