@@ -23,6 +23,13 @@ function getTodayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Les deux packs quotidiens (Coup d'Envoi et Pack Club) se débloquent au même moment : minuit UTC
+// (1 h ou 2 h du matin en France). Ce délai sert aux deux compte à rebours.
+function msUntilNextDailyReset() {
+  const now = new Date();
+  return Math.max(0, Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime());
+}
+
 function isDailyAvailable() {
   if (DEV_MODE) return true;
   return dailyLastUsed !== getTodayStr();
@@ -970,7 +977,7 @@ const CLUB_PACK = {
   name: "Pack Club",
   description: "5 cartes du club du jour — sans légendes",
   cardsCount: 5,
-  cost: 400,
+  cost: 300,
   clubDaily: true,
   // mêmes chances que le Pack Pro D2
   weightModifier: { commune: 0.4, rare: 1.5, epique: 1.8, international: 1.5, legendaire: 0 }
@@ -980,13 +987,6 @@ const CLUB_PACK = {
 if (!PACKS.some(p => p.id === CLUB_PACK.id)) {
   const afterIdx = PACKS.findIndex(p => p.id === "premium");
   PACKS.splice(afterIdx >= 0 ? afterIdx + 1 : PACKS.length, 0, { ...CLUB_PACK });
-}
-
-// Jour calendaire local (YYYY-MM-DD) : le club change et l'achat se débloque à minuit, heure de l'utilisateur
-function getLocalDayStr(date = new Date()) {
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${m}-${d}`;
 }
 
 // Clubs pouvant alimenter le pack (dans l'ordre de TEAMS)
@@ -1023,7 +1023,7 @@ function clubCycleOrder(clubs, cycle) {
 // Club du jour : identique pour tous les joueurs un même jour, sans serveur.
 // Les clubs défilent dans un ordre mélangé : chacun revient une fois par cycle,
 // et jamais le même club deux jours de suite.
-function getClubOfTheDay(dayStr = getLocalDayStr()) {
+function getClubOfTheDay(dayStr = getTodayStr()) {
   const clubs = getClubPackCandidates();
   if (clubs.length === 0) return null;
   const [y, m, d] = dayStr.split("-").map(Number);
@@ -1064,12 +1064,12 @@ function drawClubPackCards(pack, clubKey) {
 // Achat limité à 1 par jour — la date est conservée dans Firestore (pas de contournement par rafraîchissement)
 function isClubPackAvailable() {
   if (DEV_MODE) return true;
-  return clubPackLast !== getLocalDayStr();
+  return clubPackLast !== getTodayStr();   // même jour de référence que le Coup d'Envoi
 }
 
 function markClubPackUsed() {
   if (DEV_MODE) return;
-  clubPackLast = getLocalDayStr();
+  clubPackLast = getTodayStr();
   if (currentUser) {
     db.collection("users").doc(currentUser.uid).update({ clubPackLast })
       .catch(e => console.error("Erreur save clubPackLast:", e));
@@ -1078,7 +1078,7 @@ function markClubPackUsed() {
 // ===== PACK CLUB : FIN =====
 
 // Horloge : met à jour le compte à rebours du pack et rafraîchit les packs quand le jour change
-// (si l'onglet reste ouvert après minuit, le club affiché change tout seul)
+// (si l'onglet reste ouvert au moment du déblocage, le club affiché change tout seul)
 let clubPackRenderedDay = null;
 let clubPackTickerStarted = false;
 
@@ -1086,17 +1086,13 @@ function startClubPackTicker() {
   if (clubPackTickerStarted) return;
   clubPackTickerStarted = true;
   setInterval(() => {
-    if (clubPackRenderedDay && getLocalDayStr() !== clubPackRenderedDay) {
+    if (clubPackRenderedDay && getTodayStr() !== clubPackRenderedDay) {
       renderPacks();
       return;
     }
     const el = document.getElementById("club-pack-countdown");
     if (!el) return;
-    const now = new Date();
-    const next = new Date(now);
-    next.setDate(next.getDate() + 1);
-    next.setHours(0, 0, 0, 0);
-    const diff = Math.max(0, next - now);
+    const diff = msUntilNextDailyReset();
     const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
     const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
     const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
@@ -1205,7 +1201,7 @@ function renderPacks() {
   // Démarrer le compte à rebours si le daily est utilisé
   if (!dailyAvailable) startDailyCountdown();
 
-  clubPackRenderedDay = getLocalDayStr();
+  clubPackRenderedDay = getTodayStr();
   updateCoinsDisplay();
 }
 
@@ -1221,12 +1217,7 @@ function startDailyCountdown() {
     const el = document.getElementById("daily-countdown");
     if (!el) { clearInterval(countdownInterval); return; }
 
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-
-    const diff = tomorrow - now;
+    const diff = msUntilNextDailyReset();
     if (diff <= 0) {
       clearInterval(countdownInterval);
       renderPacks();
@@ -2361,6 +2352,21 @@ const BANC_CONFIGS = {
       { id: "r22", label: "Avant (libre)",    num: 22, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
       { id: "r23", label: "Trois-quarts",     num: 23, postes: ["Demi de mêlée","Demi d'ouverture","Centre","Ailier","Arrière"] }
     ]
+  },
+  "8-0": {
+    label: "8-0",
+    nickname: "Bomb Squad",
+    description: "8 avants / 0 trois-quarts — la « Bomb Squad »",
+    slots: [
+      { id: "r16", label: "Pilier",           num: 16, postes: ["Pilier"] },
+      { id: "r17", label: "Talonneur",        num: 17, postes: ["Talonneur"] },
+      { id: "r18", label: "Pilier",           num: 18, postes: ["Pilier"] },
+      { id: "r19", label: "2e/3e Ligne",      num: 19, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r20", label: "2e/3e Ligne",      num: 20, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r21", label: "2e/3e Ligne",      num: 21, postes: ["Deuxième ligne","Troisième ligne"] },
+      { id: "r22", label: "Avant (libre)",    num: 22, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] },
+      { id: "r23", label: "Avant (libre)",    num: 23, postes: ["Pilier","Talonneur","Deuxième ligne","Troisième ligne"] }
+    ]
   }
 };
 
@@ -2372,6 +2378,12 @@ let matchHistory = []; // [{ result: "win"|"draw"|"loss", userScore, cpuScore }]
 let matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
 
 // Retourne les slots de remplaçants du banc actuel, au format EQUIPE_SLOTS
+// Libellé d'un type de banc : « 5-3 », ou « 8-0 · Bomb Squad » quand il a un surnom
+function bancLabel(key) {
+  const c = BANC_CONFIGS[key];
+  return c && c.nickname ? `${key} · ${c.nickname}` : key;
+}
+
 function getBancSlots() {
   const config = BANC_CONFIGS[currentBanc] || BANC_CONFIGS["5-3"];
   return config.slots.map(s => ({ ...s, remplacant: true }));
@@ -2428,7 +2440,7 @@ function renderEquipe() {
 
   const remplTitle = document.createElement("div");
   remplTitle.className = "remplacants-title";
-  remplTitle.textContent = `Remplaçants (${currentBanc})`;
+  remplTitle.textContent = `Remplaçants (${bancLabel(currentBanc)})`;
   remplPanel.appendChild(remplTitle);
 
   const remplGrid = document.createElement("div");
@@ -2481,8 +2493,8 @@ function renderEquipe() {
     updateEquipePreview(equipe[lastClickedSlotId]);
   }
 
-  // Boutons banc 5-3 / 6-2 / 7-1
-  ["5-3", "6-2", "7-1"].forEach(bancKey => {
+  // Boutons du type de banc (5-3, 6-2, 7-1, 8-0)
+  Object.keys(BANC_CONFIGS).forEach(bancKey => {
     const btn = document.getElementById(`banc-${bancKey}-btn`);
     if (!btn) return;
     btn.classList.toggle("active", currentBanc === bancKey);
@@ -2819,14 +2831,14 @@ function renderMatch() {
     <!-- Compositions complètes des deux équipes -->
     <div class="match-lineups">
       <div class="match-lineup-col">
-        <div class="match-lineup-title match-lineup-title-user">Ton équipe (${currentBanc})</div>
+        <div class="match-lineup-title match-lineup-title-user">Ton équipe (${bancLabel(currentBanc)})</div>
         <div class="match-lineup-subtitle">Titulaires</div>
         <div class="match-lineup-grid" id="match-user-titulaires"></div>
         <div class="match-lineup-subtitle">Remplaçants</div>
         <div class="match-lineup-grid" id="match-user-banc"></div>
       </div>
       <div class="match-lineup-col">
-        <div class="match-lineup-title match-lineup-title-cpu">${cpuLabel} (${cpuSquad.bancType})</div>
+        <div class="match-lineup-title match-lineup-title-cpu">${cpuLabel} (${bancLabel(cpuSquad.bancType)})</div>
         <div class="match-lineup-subtitle">Titulaires</div>
         <div class="match-lineup-grid" id="match-cpu-titulaires"></div>
         <div class="match-lineup-subtitle">Remplaçants</div>
