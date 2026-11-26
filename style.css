@@ -3935,3 +3935,51 @@ textarea.contact-input {
 /* Photo entière : pas de dégradé sombre par-dessus, l'image est déjà au format de la zone photo */
 .card.card-v2 .card-avatar.has-photo::after { display: none; }
 .card.card-v2 .card-photo { object-fit: cover; object-position: center; }
+
+/* ===== STATISTIQUES DES JOUEURS (Mon Équipe) ===== */
+.equipe-stats { margin-bottom: 1.2rem; }
+.stats-details {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+}
+.stats-details summary {
+  cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+  color: #fff;
+  list-style: none;
+}
+.stats-details summary::-webkit-details-marker { display: none; }
+.stats-count { margin-left: 0.6rem; font-family: 'Montserrat', sans-serif; font-size: 0.72rem; letter-spacing: 0; color: rgba(255,255,255,0.5); }
+.stats-empty { margin: 0.7rem 0 0.2rem; font-size: 0.82rem; color: rgba(255,255,255,0.55); line-height: 1.5; }
+.stats-scroll { margin-top: 0.7rem; max-height: 300px; overflow: auto; border-radius: 8px; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+.stats-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.45rem 0.55rem;
+  background: #1a1c2e;
+  color: rgba(255,255,255,0.75);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  user-select: none;
+}
+.stats-table th:hover { color: var(--gold); }
+.stats-table td { padding: 0.4rem 0.55rem; text-align: center; color: #fff; border-top: 1px solid rgba(255,255,255,0.06); font-variant-numeric: tabular-nums; }
+.stats-table td.zero { color: rgba(255,255,255,0.25); }
+.stats-table tbody tr:hover td { background: rgba(255,255,255,0.05); }
+.stats-name-col { position: sticky; left: 0; z-index: 1; text-align: left !important; background: #14161f; min-width: 150px; }
+.stats-table th.stats-name-col { z-index: 3; background: #1a1c2e; }
+.stats-player { display: block; font-weight: 700; }
+.stats-name-col small { display: block; font-size: 0.62rem; color: rgba(255,255,255,0.5); }
+@media (max-width: 768px) {
+  .stats-scroll { max-height: 240px; }
+  .stats-name-col { min-width: 120px; }
+}

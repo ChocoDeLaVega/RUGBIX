@@ -235,6 +235,12 @@ function setupProgressSync() {
       if (data.xvUsed) xvUsedInMemory = true;
       if (data.dailyLast) dailyLastUsed = data.dailyLast;
       if (data.clubPackLast) clubPackLast = data.clubPackLast;
+      if (Array.isArray(data.playerStats)) {   // autre appareil : statistiques à jour
+        playerStats = playerStatsFromArray(data.playerStats);
+        playerStatsVersion++;
+        if (migrateStatsKeys()) saveData();
+        renderPlayerStatsTable();
+      }
       if (data.banc && BANC_CONFIGS[data.banc]) currentBanc = data.banc;
 
       if (data.equipe) {
@@ -288,6 +294,9 @@ async function loadProgressFromFirebase() {
       // Historique des matchs (les 10 plus récents) et statistiques cumulées
       matchHistory = Array.isArray(data.matchHistory) ? data.matchHistory : [];
       matchStats = data.matchStats || { played: 0, wins: 0, draws: 0, losses: 0 };
+      playerStats = playerStatsFromArray(data.playerStats);
+      playerStatsVersion++;
+      if (migrateStatsKeys()) saveData();
     } else {
       collection = {};
       coins = 900;
@@ -295,6 +304,7 @@ async function loadProgressFromFirebase() {
       currentBanc = "5-3";
       matchHistory = [];
       matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
+      playerStats = {}; playerStatsVersion++;
       await saveToFirebase();
     }
   } catch(e) {
@@ -304,6 +314,7 @@ async function loadProgressFromFirebase() {
     equipe = {};
     matchHistory = [];
     matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
+    playerStats = {}; playerStatsVersion++;
   }
 }
 
@@ -329,6 +340,7 @@ function saveData() {
         clubPackLast: clubPackLast || null,
         matchHistory,
         matchStats,
+        playerStats: serializePlayerStats(),
         lastSaved: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     } catch(e) {
@@ -358,6 +370,7 @@ async function saveToFirebase() {
         clubPackLast: clubPackLast || null,
       matchHistory,
       matchStats,
+      playerStats: serializePlayerStats(),
       lastSaved: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   } catch(e) {
@@ -2377,6 +2390,117 @@ let currentBanc = "5-3";
 let matchHistory = []; // [{ result: "win"|"draw"|"loss", userScore, cpuScore }]
 let matchStats = { played: 0, wins: 0, draws: 0, losses: 0 };
 
+// ---------------------------------------------------------
+// STATISTIQUES DES JOUEURS : cumul de tous les matchs de l'utilisateur, affiché dans « Mon Équipe ».
+// { "nom|club": { matchs, essais, ... } } — un joueur est ajouté dès qu'il prend part à un match,
+// puis seuls ses compteurs évoluent.
+// ---------------------------------------------------------
+const PLAYER_STAT_COLUMNS = [
+  { key: "matchs", label: "Matchs", title: "Matchs disputés (titulaire, ou remplaçant entré en jeu)" },
+  { key: "essais", label: "Essais", title: "Essais marqués" },
+  { key: "penalites", label: "Pénal.", title: "Pénalités réussies" },
+  { key: "transformations", label: "Transf.", title: "Transformations réussies" },
+  { key: "drops", label: "Drops", title: "Drops réussis" },
+  { key: "jaunes", label: "🟨", title: "Cartons jaunes" },
+  { key: "rouges", label: "🟥", title: "Cartons rouges" },
+  { key: "plaquages", label: "Plaq.", title: "Plaquages réussis" },
+  { key: "grattages", label: "Grat.", title: "Grattages (ballons récupérés)" },
+  { key: "metres", label: "Mètres", title: "Mètres parcourus ballon en main" },
+  { key: "cassees", label: "Plaq. cassés", title: "Plaquages cassés (défenseurs dépassés ballon en main)" }
+];
+let playerStats = {};
+let playerStatsVersion = 0;                       // change à chaque mise à jour : évite de redessiner le tableau pour rien
+let playerStatsSort = { key: "matchs", dir: -1 }; // -1 = décroissant
+let playerStatsOpen = true;
+
+const zeroPlayerStats = () => Object.fromEntries(PLAYER_STAT_COLUMNS.map(c => [c.key, 0]));
+
+function addPlayerStats(target, add) {
+  PLAYER_STAT_COLUMNS.forEach(c => { target[c.key] = (target[c.key] || 0) + (Number(add[c.key]) || 0); });
+}
+
+// Ajoute les statistiques d'un match terminé : nouveaux joueurs ajoutés, joueurs déjà présents mis à jour
+function applyMatchStats(matchPlayerStats) {
+  Object.entries(matchPlayerStats || {}).forEach(([key, st]) => {
+    if (!playerStats[key]) playerStats[key] = zeroPlayerStats();
+    addPlayerStats(playerStats[key], st);
+  });
+  playerStatsVersion++;
+  saveData();
+  renderPlayerStatsTable();
+}
+
+// Firestore : tableau (remplacé en entier à chaque sauvegarde, donc aucune ancienne entrée ne reste)
+function serializePlayerStats() {
+  return Object.entries(playerStats).map(([k, v]) => ({ k, ...v }));
+}
+function playerStatsFromArray(arr) {
+  const out = {};
+  (Array.isArray(arr) ? arr : []).forEach(e => {
+    if (!e || !e.k) return;
+    out[e.k] = zeroPlayerStats();
+    addPlayerStats(out[e.k], e);
+  });
+  return out;
+}
+
+// Un joueur renommé (ou changé de club) garde son historique
+function migrateStatsKeys() {
+  let changed = false;
+  Object.keys(playerStats).forEach(oldKey => {
+    const nk = resolveKey(oldKey);
+    if (nk === oldKey) return;
+    if (!playerStats[nk]) playerStats[nk] = zeroPlayerStats();
+    addPlayerStats(playerStats[nk], playerStats[oldKey]);
+    delete playerStats[oldKey];
+    changed = true;
+  });
+  if (changed) playerStatsVersion++;
+  return changed;
+}
+
+function renderPlayerStatsTable() {
+  const zone = document.getElementById("equipe-stats");
+  if (!zone) return;
+  const stamp = String(playerStatsVersion) + "|" + playerStatsSort.key + playerStatsSort.dir;
+  if (zone.dataset.stamp === stamp && zone.innerHTML) return;   // rien n'a changé
+  zone.dataset.stamp = stamp;
+
+  const byKey = new Map(PLAYERS.map(p => [getCardKey(p), p]));
+  const rows = Object.entries(playerStats).map(([key, st]) => {
+    const p = byKey.get(key);
+    return { name: p ? p.name : key.split("|")[0], poste: p ? (p.positions || []).join(" / ") : "", st };
+  });
+  const { key: sk, dir } = playerStatsSort;
+  rows.sort((a, b) => {
+    if (sk === "name") return dir * a.name.localeCompare(b.name);
+    return dir * ((a.st[sk] || 0) - (b.st[sk] || 0)) || (b.st.matchs - a.st.matchs) || a.name.localeCompare(b.name);
+  });
+
+  const arrow = k => (playerStatsSort.key === k ? (playerStatsSort.dir === -1 ? " ▼" : " ▲") : "");
+  const head = `<th class="stats-name-col" data-sort="name">Joueur${arrow("name")}</th>` +
+    PLAYER_STAT_COLUMNS.map(c => `<th data-sort="${c.key}" title="${c.title}">${c.label}${arrow(c.key)}</th>`).join("");
+  const body = rows.map(r => `<tr><td class="stats-name-col"><span class="stats-player">${r.name}</span>${r.poste ? `<small>${r.poste}</small>` : ""}</td>` +
+    PLAYER_STAT_COLUMNS.map(c => { const v = r.st[c.key] || 0; return `<td class="${v ? "" : "zero"}">${v}</td>`; }).join("") + "</tr>").join("");
+
+  zone.innerHTML = `
+    <details class="stats-details" ${playerStatsOpen ? "open" : ""}>
+      <summary>📊 Statistiques de mes joueurs <span class="stats-count">${rows.length} joueur${rows.length > 1 ? "s" : ""}</span></summary>
+      ${rows.length === 0
+        ? `<p class="stats-empty">Aucun match disputé pour l'instant. Les statistiques de tes titulaires et de tes remplaçants entrés en jeu apparaîtront ici après chaque match.</p>`
+        : `<div class="stats-scroll"><table class="stats-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`}
+    </details>`;
+
+  zone.querySelector("details").addEventListener("toggle", e => { playerStatsOpen = e.target.open; });
+  zone.querySelectorAll("th[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.dataset.sort;
+      playerStatsSort = playerStatsSort.key === k ? { key: k, dir: -playerStatsSort.dir } : { key: k, dir: k === "name" ? 1 : -1 };
+      renderPlayerStatsTable();
+    });
+  });
+}
+
 // Retourne les slots de remplaçants du banc actuel, au format EQUIPE_SLOTS
 // Libellé d'un type de banc : « 5-3 », ou « 8-0 · Bomb Squad » quand il a un surnom
 function bancLabel(key) {
@@ -2398,6 +2522,7 @@ let lastClickedSlotId = null; // dernier poste cliqué, pour l'aperçu à droite
 let currentSlotId = null;
 
 function renderEquipe() {
+  renderPlayerStatsTable();
   const container = document.getElementById("pitch-container");
   container.innerHTML = "";
 
@@ -3147,6 +3272,9 @@ function startMatchSimulation(userTitulaires, userBanc, cpuTitulaires, cpuBanc, 
     // Rafraîchir immédiatement le panneau historique/stats
     renderMatchHistoryPanel();
 
+    // Statistiques individuelles : titulaires + remplaçants entrés en jeu
+    applyMatchStats(events.playerStats);
+
     resultEl.classList.remove("hidden");
 
     if (won) {
@@ -3386,6 +3514,77 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
   const yellowCarded = { user: new Set(), cpu: new Set() }; // joueurs déjà avertis d'un jaune
   const queue = []; // temps forts, remplacements et retours de carton jaune, triés par minute
 
+  // ---------------------------------------------------------
+  // STATISTIQUES INDIVIDUELLES de l'équipe de l'utilisateur : qui a joué, combien de temps, et ce qu'il a fait.
+  // Un titulaire est compté dès le coup d'envoi ; un remplaçant seulement s'il entre en jeu.
+  // ---------------------------------------------------------
+  const ustats = {};          // clé joueur -> compteurs du match
+  const stint = {};           // clé joueur -> minute d'entrée sur le terrain (période en cours)
+  const minutesOn = {};       // clé joueur -> minutes jouées
+  const appeared = new Map(); // clé joueur -> joueur ayant pris part au match
+  const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  function ensureStat(p) {
+    const k = getCardKey(p);
+    if (!ustats[k]) {
+      ustats[k] = { matchs: 1, essais: 0, penalites: 0, transformations: 0, drops: 0, jaunes: 0, rouges: 0, plaquages: 0, grattages: 0, metres: 0, cassees: 0 };
+      appeared.set(k, p);
+    }
+    return ustats[k];
+  }
+  function addStat(p, field, n = 1) { if (p) ensureStat(p)[field] += n; }
+  function startStint(p, minute) { ensureStat(p); stint[getCardKey(p)] = minute; }
+  function endStint(p, minute) {
+    const k = getCardKey(p);
+    if (stint[k] !== undefined) { minutesOn[k] = (minutesOn[k] || 0) + Math.max(0, minute - stint[k]); delete stint[k]; }
+  }
+  userTitulaires.forEach(p => startStint(p, 0));
+
+  // Actions racontées dans le commentaire -> compteurs du joueur cité
+  const STAT_TAGS = [
+    [/Plaquage cathédrale|mur défensif|arrêt buffet|sauvetage héroïque|Cartouche magistrale|solide en défense/i, "plaquage"],
+    [/grattage|gratte le|Ballon arraché des bras|Contre tactique en l'air/i, "grattage"],
+    [/grappille quelques mètres/i, "metres"],
+    [/redouble à l'intérieur|Passe après contact/i, "cassee"]
+  ];
+  function applyTag(p, text) {
+    if (!p) return;
+    const hit = STAT_TAGS.find(([re]) => re.test(text));
+    if (!hit) return;
+    const tag = hit[1];
+    if (tag === "plaquage") addStat(p, "plaquages");
+    else if (tag === "grattage") { addStat(p, "grattages"); addStat(p, "plaquages"); }
+    else if (tag === "metres") addStat(p, "metres", randInt(6, 14));
+    else if (tag === "cassee") { addStat(p, "cassees"); addStat(p, "metres", randInt(10, 25)); }
+  }
+
+  // Activité « de fond » de chaque joueur (plaquages, mètres...), selon son poste, son temps de jeu et ses sous-notes
+  const POSTE_RATES = {   // par match de 80 min : plaquages, mètres, plaquages cassés, grattages
+    "Pilier": { pl: 8, me: 18, pc: 0.3, gr: 0.2 }, "Talonneur": { pl: 9, me: 22, pc: 0.4, gr: 0.3 },
+    "Deuxième ligne": { pl: 10, me: 25, pc: 0.5, gr: 0.5 }, "Troisième ligne": { pl: 12, me: 38, pc: 1.1, gr: 1.1 },
+    "Demi de mêlée": { pl: 7, me: 16, pc: 0.9, gr: 0.2 }, "Demi d'ouverture": { pl: 6, me: 22, pc: 1.0, gr: 0.1 },
+    "Centre": { pl: 8, me: 45, pc: 1.7, gr: 0.2 }, "Ailier": { pl: 4, me: 65, pc: 2.4, gr: 0.15 }, "Arrière": { pl: 4, me: 70, pc: 2.0, gr: 0.15 }
+  };
+  function poisson(lambda) {
+    const L = Math.exp(-lambda); let k = 0, p = 1;
+    do { k++; p *= Math.random(); } while (p > L);
+    return k - 1;
+  }
+  function addBaselineStats() {
+    appeared.forEach((p, k) => {
+      const mins = minutesOn[k] || 0;
+      if (mins <= 0) return;
+      const r = POSTE_RATES[(p.positions && p.positions[0]) || ""] || { pl: 7, me: 30, pc: 1, gr: 0.3 };
+      const sub = typeof getPlayerStats === "function" ? getPlayerStats(p) : null;
+      const f = v => clampN((v || 75) / 75, 0.6, 1.5);
+      const share = mins / 80, st = ustats[k];
+      st.plaquages += poisson(r.pl * share * f(sub && sub.defense));
+      st.grattages += poisson(r.gr * share * f(sub && sub.technique));
+      st.cassees += poisson(r.pc * share * f(sub && (sub.technique + sub.vitesse) / 2));
+      st.metres += Math.round(r.me * share * f(sub && (sub.vitesse + sub.puissance) / 2) * (0.6 + 0.8 * Math.random()));
+    });
+  }
+
   function fieldCounts() {
     return { user: activeUser.length, cpu: activeCpu.length };
   }
@@ -3430,6 +3629,7 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
       usedSubs[side].add(getCardKey(incoming));
       cameOn[side].add(getCardKey(incoming));
       active[outIdx] = incoming;
+      if (side === "user") { endStint(outgoing, minute); startStint(incoming, minute); }
 
       events.push({
         minute,
@@ -3474,6 +3674,7 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
     }
 
     active.splice(active.indexOf(player), 1);
+    if (side === "user") { addStat(player, isRed ? "rouges" : "jaunes"); endStint(player, minute); }
 
     if (isRed) {
       text += ` ${label} terminera le match à ${active.length}.`;
@@ -3494,6 +3695,7 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
     const active = side === "user" ? activeUser : activeCpu;
     const label = side === "user" ? userName : cpuName;
     active.push(player);
+    if (side === "user") startStint(player, minute);
     events.push({
       minute,
       text: `⏱️ Dix minutes écoulées : <strong>${player.name}</strong> revient sur le terrain. ${label} est de nouveau à ${active.length}.`,
@@ -3526,7 +3728,7 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
       events.push({
         minute,
         text: `Geste d'antijeu manifeste pour empêcher une action d'essai... Essai de pénalité accordé à <strong>${teamName}</strong> !`,
-        team, points: 7, important: true
+        team, points: 7, important: true, kind: "essai_penalite"
       });
       return;
     }
@@ -3535,24 +3737,41 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
       const pool = Math.random() < 0.35 ? T.essai_avant : T.essai_arriere;
       const [role, tpl] = randomOf(pool);
       const points = Math.random() < 0.75 ? 7 : 5; // transformé ou non
-      const text = withName(tpl, pickPlayer(active, role, teamName)) + (points === 7 ? "" : " (transformation manquée)");
-      events.push({ minute, text, team, points, important: true });
+      const scorer = pickPlayerObj(active, role);
+      let text = withName(tpl, (scorer && scorer.name) || teamName);
+      if (points === 7) {
+        const kicker = pickPlayerObj(active, "kicker");
+        if (kicker) text += ` Transformation réussie par <strong>${kicker.name}</strong>.`;
+        if (isUser) addStat(kicker, "transformations");
+      } else {
+        text += " (transformation manquée)";
+      }
+      if (isUser) {
+        addStat(scorer, "essais");
+        addStat(scorer, "metres", randInt(5, 45));
+        if (role === "finisher" && Math.random() < 0.5) addStat(scorer, "cassees");
+      }
+      events.push({ minute, text, team, points, important: true, kind: "essai" });
       return;
     }
 
     if (phase === "penalite" || phase === "dropgoal") {
       const [role, tpl] = randomOf(T[phase]);
+      const kicker = pickPlayerObj(active, role);
+      if (isUser) addStat(kicker, phase === "dropgoal" ? "drops" : "penalites");
       events.push({
         minute,
-        text: withName(tpl, pickPlayer(active, role, teamName)),
-        team, points: 3, important: phase === "dropgoal"
+        text: withName(tpl, (kicker && kicker.name) || teamName),
+        team, points: 3, important: phase === "dropgoal", kind: phase === "dropgoal" ? "drop" : "penalite"
       });
       return;
     }
 
     // Phases sans points : conquête, jeu courant, jeu au pied, défense, erreurs
     const [role, tpl] = randomOf(T[phase]);
-    events.push({ minute, text: withName(tpl, pickPlayer(active, role, teamName)), team, points: 0, important: false });
+    const actor = pickPlayerObj(active, role);
+    if (isUser) applyTag(actor, tpl);
+    events.push({ minute, text: withName(tpl, (actor && actor.name) || teamName), team, points: 0, important: false });
   }
 
   // ---------------------------------------------------------
@@ -3579,6 +3798,9 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
   // ---------------------------------------------------------
   // COUP DE SIFFLET FINAL + ambiance de fin de match selon le résultat
   // ---------------------------------------------------------
+  activeUser.forEach(p => endStint(p, 80));   // les joueurs encore sur le terrain au coup de sifflet final
+  addBaselineStats();
+
   let userPts = 0, cpuPts = 0;
   events.forEach(e => {
     if (e.points) {
@@ -3599,6 +3821,7 @@ function generateMatchEvents(userName, cpuName, userAdvantage, userTitulaires, u
     events.push({ minute: 80, text, team: null, points: 0, important: false });
   }
 
+  events.playerStats = ustats;   // statistiques individuelles de l'équipe de l'utilisateur pour ce match
   return events;
 }
 
